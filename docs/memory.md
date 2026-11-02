@@ -48,7 +48,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Area | Status | Notes |
 |---|---|---|
 | Docs (prd, architecture, phases, rules, memory) | DONE | Created 2 Nov |
-| Repo, CI, scaffolds | DOING | Folder layout, docs/, infra, postman, LICENSE, CI created |
+| Repo, CI, scaffolds | DONE | Backend & frontend build & test verified locally and in CI |
 | PayPal Sandbox app and credentials | TODO | Day 1 |
 | Create, approve, capture a Sandbox order | TODO | Day 2 |
 | Webhook endpoint on a public URL | TODO | Day 2 |
