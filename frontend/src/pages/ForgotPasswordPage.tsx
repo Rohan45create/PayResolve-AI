@@ -12,7 +12,8 @@ export default function ForgotPasswordPage() {
       alert('Please enter your email.');
       return;
     }
-    navigate('/password-updated');
+    // Route to choose a new password
+    navigate('/reset-password');
   };
 
   return (
