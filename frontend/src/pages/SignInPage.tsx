@@ -3,12 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 
 export default function SignInPage() {
-  const [username, setUsername] = useState('operator');
-  const [password, setPassword] = useState('••••••••');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim() || !password) {
+      alert('Please enter your username and password.');
+      return;
+    }
     // Simulate sign-in action
     alert(`Signed in as: ${username}`);
     navigate('/');
@@ -33,9 +37,10 @@ export default function SignInPage() {
             </label>
             <input
               type="text"
+              placeholder="e.g. operator"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white"
               required
             />
           </div>
@@ -54,9 +59,10 @@ export default function SignInPage() {
             </div>
             <input
               type="password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white font-mono"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white"
               required
             />
           </div>

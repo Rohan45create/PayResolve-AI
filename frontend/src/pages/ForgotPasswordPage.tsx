@@ -3,11 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('operator@payresolve.dev');
+  const [email, setEmail] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      alert('Please enter your email.');
+      return;
+    }
     navigate('/password-updated');
   };
 
@@ -30,9 +34,10 @@ export default function ForgotPasswordPage() {
             </label>
             <input
               type="email"
+              placeholder="e.g. user@payresolve.dev"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white font-mono"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white"
               required
             />
             <p className="text-xs text-slate-400 mt-1">
