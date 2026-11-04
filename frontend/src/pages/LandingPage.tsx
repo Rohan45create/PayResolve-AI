@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { 
   ArrowRight, 
   ExternalLink, 
@@ -5,15 +6,23 @@ import {
   ChevronRight, 
   ShieldCheck, 
   Clock, 
-  Sparkles 
+  Sparkles,
+  X
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const [modalContent, setModalContent] = useState<{ title: string; category: string; description: string; items?: string[] } | null>(null);
 
-  const handleAction = (name: string) => {
-    alert(`Triggered action: "${name}"`);
+  const scrollToSection = (id: string) => {
+    const elem = document.getElementById(id);
+    if (elem) {
+      elem.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const openModal = (title: string, category: string, description: string, items?: string[]) => {
+    setModalContent({ title, category, description, items });
   };
 
   return (
@@ -27,15 +36,15 @@ export default function LandingPage() {
               P
             </div>
             <span className="font-bold text-xl tracking-tight text-white flex items-center gap-1">
-              PayResolve <span className="text-blue-400 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-900/60 border border-blue-700/50">AI</span>
+              PayResolve <span className="text-blue-400 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-900/60 border border-blue-700/50 font-mono">AI</span>
             </span>
           </Link>
 
           <div className="hidden md:flex items-center space-x-7 text-sm font-medium text-slate-300">
-            <button onClick={() => handleAction('Nav: Features')} className="cursor-pointer text-slate-300">Features</button>
-            <button onClick={() => handleAction('Nav: Architecture')} className="cursor-pointer text-slate-300">Architecture</button>
-            <button onClick={() => handleAction('Nav: Evidence Graph')} className="cursor-pointer text-slate-300">Evidence Graph</button>
-            <button onClick={() => handleAction('Nav: Research')} className="cursor-pointer text-slate-300">Research</button>
+            <button onClick={() => scrollToSection('features')} className="cursor-pointer text-slate-300">Features</button>
+            <button onClick={() => scrollToSection('how-it-works')} className="cursor-pointer text-slate-300">Architecture</button>
+            <button onClick={() => scrollToSection('evidence-graph')} className="cursor-pointer text-slate-300">Evidence Graph</button>
+            <button onClick={() => scrollToSection('sources')} className="cursor-pointer text-slate-300">Research</button>
           </div>
         </div>
 
@@ -46,12 +55,12 @@ export default function LandingPage() {
           >
             Sign in
           </Link>
-          <button 
-            onClick={() => navigate('/signin')}
-            className="text-sm font-semibold bg-white text-[#031535] px-4 py-2 rounded-md shadow cursor-pointer"
+          <Link 
+            to="/signin"
+            className="text-sm font-semibold bg-white text-[#031535] px-4 py-2 rounded-md shadow cursor-pointer inline-block"
           >
             Open Live Console
-          </button>
+          </Link>
         </div>
       </nav>
 
@@ -86,12 +95,15 @@ export default function LandingPage() {
                 <span>Launch Demo Console</span>
                 <ArrowRight className="w-4 h-4 text-blue-700" />
               </Link>
-              <button 
-                onClick={() => handleAction('View Architecture Specs')}
-                className="border border-blue-300/40 text-white bg-blue-950/40 px-5 py-3 rounded-md font-semibold text-sm cursor-pointer"
+              <a 
+                href="https://github.com/Skedare240507/PayResolve-AI#readme"
+                target="_blank"
+                rel="noreferrer"
+                className="border border-blue-300/40 text-white bg-blue-950/40 px-5 py-3 rounded-md font-semibold text-sm cursor-pointer inline-flex items-center space-x-1.5"
               >
-                Explore Docs
-              </button>
+                <span>Explore Docs</span>
+                <ExternalLink className="w-3.5 h-3.5 text-blue-300" />
+              </a>
             </div>
 
             <div className="flex items-center space-x-6 text-xs text-blue-200/80 pt-4 border-t border-blue-400/20">
@@ -110,6 +122,7 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Interactive Evidence Graph visualizer */}
           <div className="lg:col-span-7">
             <div className="bg-[#0b1329] border border-blue-900/60 rounded-xl shadow-2xl p-4 sm:p-6 overflow-hidden relative">
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -127,7 +140,12 @@ export default function LandingPage() {
               <div className="py-8 px-2 sm:px-6 relative flex flex-col items-center justify-center min-h-[290px] bg-[#070d1e]/80 rounded-lg mt-3 border border-slate-800/80">
                 <div className="grid grid-cols-3 gap-6 sm:gap-10 w-full items-center relative z-10">
                   <div 
-                    onClick={() => handleAction('Select Node: Store Order #98214')}
+                    onClick={() => openModal(
+                      'Store Order Record #98214',
+                      'Merchant Database',
+                      'Internal PostgreSQL store record captured at initial cart completion. Status remained PENDING because the payment gateway webhook confirmation dropped in transit.',
+                      ['Customer: Jane Doe', 'Amount: $189.50 USD', 'Created: 2026-11-04T12:00:22Z', 'Order Status: PENDING (Unpaid)']
+                    )}
                     className="bg-[#121c38] border-2 border-blue-500/80 rounded-lg p-3 text-center cursor-pointer shadow-md"
                   >
                     <div className="text-[10px] text-blue-300 uppercase tracking-wider font-bold">Store Checkout</div>
@@ -139,7 +157,12 @@ export default function LandingPage() {
                   </div>
 
                   <div 
-                    onClick={() => handleAction('Select Node: PayPal Capture 7XY...')}
+                    onClick={() => openModal(
+                      'PayPal Capture #7XY892',
+                      'PayPal Orders v2 API',
+                      'Verified capture record queried live through PayPal Sandbox. Funds were successfully transferred and settled into the merchant wallet.',
+                      ['PayPal Order ID: 5O190127TN364715T', 'Capture ID: 7XY8929104', 'Amount: $189.50 USD', 'PayPal State: COMPLETED']
+                    )}
                     className="bg-[#10243e] border-2 border-emerald-500 rounded-lg p-3 text-center cursor-pointer shadow-md relative"
                   >
                     <div className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold">PayPal Sandbox</div>
@@ -151,7 +174,12 @@ export default function LandingPage() {
                   </div>
 
                   <div 
-                    onClick={() => handleAction('Select Node: Missing Webhook Ack')}
+                    onClick={() => openModal(
+                      'Missing Webhook Event Node',
+                      'Network Disconnect',
+                      'The webhook dispatch PAYMENT.CAPTURE.COMPLETED was transmitted by PayPal but failed to receive a 200 OK from the merchant listener due to a transient network timeout.',
+                      ['Event: PAYMENT.CAPTURE.COMPLETED', 'HTTP Response: Connection Reset (ETIMEDOUT)', 'Result: Store order mutation missed', 'Remediation: Safe Re-sync']
+                    )}
                     className="bg-[#24131b] border-2 border-dashed border-rose-500/80 rounded-lg p-3 text-center cursor-pointer shadow-md"
                   >
                     <div className="text-[10px] text-rose-300 uppercase tracking-wider font-bold">Webhook Event</div>
@@ -191,13 +219,21 @@ export default function LandingPage() {
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button 
-                    onClick={() => handleAction('Execute Safe Sync')}
+                    onClick={() => openModal(
+                      'Idempotent Safe Sync Execution',
+                      'Human Approval Protocol',
+                      'PayResolve triggers the verified internal action SYNC_ORDER_STATUS with idempotency key `sync-ord-98214-v1`. The store database safely transitions to PAID with 0 risk of duplicate charges or unexpected refunds.'
+                    )}
                     className="bg-emerald-600 text-white font-semibold text-xs px-3.5 py-2 rounded shadow cursor-pointer whitespace-nowrap"
                   >
                     Execute Safe Sync
                   </button>
                   <button 
-                    onClick={() => handleAction('Inspect Raw Telemetry')}
+                    onClick={() => openModal(
+                      'Raw Gateway Telemetry',
+                      'Audit & Verification',
+                      'Inspect raw HTTP JSON payload and cryptographic webhook signature headers (PayPal-Transmission-Id, PayPal-Cert-Url) validating that this event originated from official PayPal infrastructure.'
+                    )}
                     className="bg-slate-800 text-slate-300 border border-slate-700 font-medium text-xs px-3 py-2 rounded cursor-pointer whitespace-nowrap"
                   >
                     Inspect
@@ -212,7 +248,7 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- SECTION 2: DISPUTES ARE GROWING & EVIDENCE IS SCATTERED ---------------- */}
-      <section className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
+      <section id="features" className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           
           <div className="lg:col-span-5 space-y-4">
@@ -223,13 +259,15 @@ export default function LandingPage() {
               Modern digital commerce breaks when state diverges across gateways, webhooks, fulfillment microservices, and customer support desks. Manual reconciliation is slow, error-prone, and burns merchant margins.
             </p>
             <div className="pt-2">
-              <button 
-                onClick={() => handleAction('Download Dispute Benchmark')}
+              <a 
+                href="https://github.com/Skedare240507/PayResolve-AI/blob/main/docs/prd.md"
+                target="_blank"
+                rel="noreferrer"
                 className="text-blue-600 font-semibold text-sm inline-flex items-center space-x-1.5 cursor-pointer border-b border-blue-600 pb-0.5"
               >
-                <span>Read the 2026 Payment Exception Report</span>
+                <span>Read the PayResolve PRD & Dispute Analysis</span>
                 <ChevronRight className="w-4 h-4" />
-              </button>
+              </a>
             </div>
           </div>
 
@@ -240,7 +278,10 @@ export default function LandingPage() {
               <p className="text-xs text-slate-500 leading-relaxed">
                 Most disputes start as transient webhook drops or timing delays where payment went through but store orders remained stuck.
               </p>
-              <button onClick={() => handleAction('Metric: 83.4% Details')} className="text-xs text-blue-600 font-medium pt-1 cursor-pointer">
+              <button 
+                onClick={() => openModal('83.4% Dropped Events', 'Research Finding', 'Over 80% of payment discrepancies in distributed architectures stem not from actual fraud, but from dropped network webhooks between the PSP and store checkout.')} 
+                className="text-xs text-blue-600 font-medium pt-1 cursor-pointer"
+              >
                 View breakdown &rarr;
               </button>
             </div>
@@ -251,7 +292,10 @@ export default function LandingPage() {
               <p className="text-xs text-slate-500 leading-relaxed">
                 Support agents who lack synchronized timeline graphs mistakenly refund transactions that were already fulfilled or captured.
               </p>
-              <button onClick={() => handleAction('Metric: 38% Details')} className="text-xs text-blue-600 font-medium pt-1 cursor-pointer">
+              <button 
+                onClick={() => openModal('38% Double Refund Rate', 'Merchant Risk', 'Support operators issuing manual refunds under pressure frequently issue store credit while card claims are actively processing simultaneously.')}
+                className="text-xs text-blue-600 font-medium pt-1 cursor-pointer"
+              >
                 View study &rarr;
               </button>
             </div>
@@ -262,7 +306,10 @@ export default function LandingPage() {
               <p className="text-xs text-slate-500 leading-relaxed">
                 Customers file claims with card issuers simply because store support takes over 24 hours to track down their transaction state.
               </p>
-              <button onClick={() => handleAction('Metric: 58% Details')} className="text-xs text-blue-600 font-medium pt-1 cursor-pointer">
+              <button 
+                onClick={() => openModal('58% Needlessly Escalated Tickets', 'Customer Experience', 'Prolonged investigations drive customers directly to their bank to open chargebacks, incurring merchant dispute fees and penalizing seller ratings.')}
+                className="text-xs text-blue-600 font-medium pt-1 cursor-pointer"
+              >
                 Read metrics &rarr;
               </button>
             </div>
@@ -273,13 +320,17 @@ export default function LandingPage() {
               <p className="text-xs text-slate-500 leading-relaxed">
                 Unresolved payment mismatches directly degrade seller ratings and incur high dispute penalty fees from processors.
               </p>
-              <button onClick={() => handleAction('Metric: 281.3M Details')} className="text-xs text-blue-600 font-medium pt-1 cursor-pointer">
+              <button 
+                onClick={() => openModal('$281.3M Lost GMV', 'Industry Benchmark', 'Aggregate annualized chargeback fees, lost stock from duplicate re-shipments, and administrative overhead across mid-market e-commerce.')}
+                className="text-xs text-blue-600 font-medium pt-1 cursor-pointer"
+              >
                 Economic impact &rarr;
               </button>
             </div>
           </div>
         </div>
 
+        {/* Evidence List Rows */}
         <div className="mt-16 divide-y divide-slate-200 border-t border-b border-slate-200">
           <div className="py-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             <div className="md:col-span-3 font-semibold text-slate-900 text-sm">
@@ -290,7 +341,7 @@ export default function LandingPage() {
             </div>
             <div className="md:col-span-2 text-right">
               <button 
-                onClick={() => handleAction('Inspect: Missing Webhook Case')}
+                onClick={() => openModal('Detector: Missing Webhook Receipts', 'Deterministic Detection Rule', 'Triggers when a PayPal Order enters COMPLETED or CAPTURED status, but the merchant order stays AWAITING_PAYMENT beyond 120 seconds.')}
                 className="text-xs font-semibold px-3 py-1.5 border border-slate-300 text-slate-700 rounded cursor-pointer"
               >
                 Inspect Flow
@@ -307,7 +358,7 @@ export default function LandingPage() {
             </div>
             <div className="md:col-span-2 text-right">
               <button 
-                onClick={() => handleAction('Inspect: Amount Mismatch Case')}
+                onClick={() => openModal('Detector: Amount & Currency Mismatches', 'Deterministic Detection Rule', 'Mathematical comparator that verifies the gross amount in PayPal capture matches the checkout invoice down to the cent.')}
                 className="text-xs font-semibold px-3 py-1.5 border border-slate-300 text-slate-700 rounded cursor-pointer"
               >
                 Inspect Flow
@@ -324,7 +375,7 @@ export default function LandingPage() {
             </div>
             <div className="md:col-span-2 text-right">
               <button 
-                onClick={() => handleAction('Inspect: Duplicate Auth Case')}
+                onClick={() => openModal('Detector: Duplicate Authorizations', 'Deterministic Detection Rule', 'Identifies repeated authorization tokens mapped to the same customer checkout session and automatically voids stale authorizations.')}
                 className="text-xs font-semibold px-3 py-1.5 border border-slate-300 text-slate-700 rounded cursor-pointer"
               >
                 Inspect Flow
@@ -341,7 +392,7 @@ export default function LandingPage() {
             </div>
             <div className="md:col-span-2 text-right">
               <button 
-                onClick={() => handleAction('Inspect: Post Delivery Dispute')}
+                onClick={() => openModal('Detector: Post-Delivery Disputes', 'Deterministic Detection Rule', 'Cross-references carrier delivery API with PayPal Dispute reason. Automatically flags the case as eligible for PayPal Seller Protection.')}
                 className="text-xs font-semibold px-3 py-1.5 border border-slate-300 text-slate-700 rounded cursor-pointer"
               >
                 Inspect Flow
@@ -352,7 +403,7 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- SECTION 3: HOW IT WORKS (STEP-BY-STEP) ---------------- */}
-      <section className="py-20 px-6 sm:px-12 lg:px-20 bg-slate-50 border-t border-slate-200">
+      <section id="how-it-works" className="py-20 px-6 sm:px-12 lg:px-20 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">How it works</h2>
@@ -363,53 +414,65 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12 relative">
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative space-y-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm font-mono">
                 1
               </div>
               <h3 className="font-bold text-slate-900 text-base">Ingest</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Connect PayPal Sandbox / Live webhooks, store orders, and shipping webhooks into a unified transactional inbox.
               </p>
-              <button onClick={() => handleAction('Step 1: Details')} className="text-xs text-blue-600 font-medium cursor-pointer">
+              <button 
+                onClick={() => openModal('1. Ingestion Engine', 'Core Architecture', 'Durable, append-only PostgreSQL inbox that receives webhooks, checks cryptographic signatures against PayPal certificates, and assigns globally unique event IDs.')} 
+                className="text-xs text-blue-600 font-medium cursor-pointer"
+              >
                 Learn more &rarr;
               </button>
             </div>
 
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative space-y-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm font-mono">
                 2
               </div>
               <h3 className="font-bold text-slate-900 text-base">Detect</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Zero-hallucination deterministic rules spot discrepancies in &lt;50ms before any AI analysis is invoked.
               </p>
-              <button onClick={() => handleAction('Step 2: Details')} className="text-xs text-blue-600 font-medium cursor-pointer">
+              <button 
+                onClick={() => openModal('2. Deterministic Detectors', 'Zero Hallucination Rules', 'Pure Java domain logic evaluates state trees (PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT). AI is never used to decide if a bug occurred.')} 
+                className="text-xs text-blue-600 font-medium cursor-pointer"
+              >
                 View rules &rarr;
               </button>
             </div>
 
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative space-y-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm font-mono">
                 3
               </div>
               <h3 className="font-bold text-slate-900 text-base">Investigate</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 AI agent uses read-only tools to interrogate PayPal Order & Capture APIs, cross-checking every reference.
               </p>
-              <button onClick={() => handleAction('Step 3: Details')} className="text-xs text-blue-600 font-medium cursor-pointer">
+              <button 
+                onClick={() => openModal('3. Tool-Calling AI Investigator', 'Spring AI 2.0 Integration', 'The investigator is equipped exclusively with read-only tools: GetPayPalOrder, GetCaptureDetails, and QueryStoreLog. It cannot execute mutations or move money.')} 
+                className="text-xs text-blue-600 font-medium cursor-pointer"
+              >
                 Tool specs &rarr;
               </button>
             </div>
 
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative space-y-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm font-mono">
                 4
               </div>
               <h3 className="font-bold text-slate-900 text-base">Approve</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Human operator reviews grounded evidence and approves one-click idempotency-guaranteed resolution actions.
               </p>
-              <button onClick={() => handleAction('Step 4: Details')} className="text-xs text-blue-600 font-medium cursor-pointer">
+              <button 
+                onClick={() => openModal('4. Human In The Loop Execution', 'Safety Protocol', 'Actions proposed by the AI must be approved by an authenticated operator. Execution employs strict idempotency keys to ensure no action repeats.')} 
+                className="text-xs text-blue-600 font-medium cursor-pointer"
+              >
                 Safety bounds &rarr;
               </button>
             </div>
@@ -418,7 +481,7 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- SECTION 4: ONE MAP. ONE INVESTIGATOR. PROOF FOR EVERY CLAIM. ---------------- */}
-      <section className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
+      <section id="evidence-graph" className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
         <div className="bg-gradient-to-br from-[#031535] via-[#082a69] to-[#0d47a1] rounded-2xl p-8 sm:p-12 lg:p-16 text-white shadow-xl relative overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-5 space-y-6">
@@ -503,13 +566,13 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button 
-                    onClick={() => handleAction('Simulate Action: Confirm & Execute')}
+                    onClick={() => openModal('Action Approved', 'Action Execution', 'Order status marked as PAID in merchant store. Fulfillment center notified to release package.')}
                     className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded cursor-pointer"
                   >
                     Confirm & Execute
                   </button>
                   <button 
-                    onClick={() => handleAction('Simulate Action: Dismiss')}
+                    onClick={() => openModal('Action Dismissed', 'Operator Override', 'Action proposal dismissed. Operator can add a custom note to the audit log.')}
                     className="bg-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded cursor-pointer"
                   >
                     Dismiss
@@ -539,7 +602,10 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 The customer receives PayPal confirmation email and their card is charged $140. Due to a server timeout on the merchant webhook listener, the cart stays "Awaiting Payment".
               </p>
-              <button onClick={() => handleAction('Case 1: Deep dive')} className="text-xs text-blue-600 font-semibold cursor-pointer">
+              <button 
+                onClick={() => openModal('Incident: Paid But Marked Pending', 'Case Study #1', 'Root cause: PayPal webhook dropped due to an edge proxy timeout. Solution: PayResolve queries the Orders v2 API, verifies the capture ID, and executes an idempotent store status update.')}
+                className="text-xs text-blue-600 font-semibold cursor-pointer"
+              >
                 View incident timeline &rarr;
               </button>
             </div>
@@ -549,7 +615,10 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 An international checkout calculates VAT after the PayPal approval token was created. The captured amount ($112.00) differs from order record ($100.00), halting fulfillment.
               </p>
-              <button onClick={() => handleAction('Case 2: Deep dive')} className="text-xs text-blue-600 font-semibold cursor-pointer">
+              <button 
+                onClick={() => openModal('Incident: Tax & Currency Discrepancy', 'Case Study #2', 'Root cause: Multi-currency checkout re-calculated tax after buyer authorization. Solution: Mathematical verifier parses line-item breakdown to ensure currency and tax alignment before release.')}
+                className="text-xs text-blue-600 font-semibold cursor-pointer"
+              >
                 View incident timeline &rarr;
               </button>
             </div>
@@ -559,7 +628,10 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 A customer asks support for a refund after initiating a chargeback on PayPal. The support agent risks issuing a store credit refund while PayPal simultaneously debits the account.
               </p>
-              <button onClick={() => handleAction('Case 3: Deep dive')} className="text-xs text-blue-600 font-semibold cursor-pointer">
+              <button 
+                onClick={() => openModal('Incident: Phantom Refund Request', 'Case Study #3', 'Root cause: Support desk is unaware of open PayPal dispute. Solution: PayResolve integrates Disputes API to immediately hold internal refunds while an external dispute is active.')}
+                className="text-xs text-blue-600 font-semibold cursor-pointer"
+              >
                 View incident timeline &rarr;
               </button>
             </div>
@@ -632,7 +704,7 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- SECTION 7: SOURCES AND REFERENCES ---------------- */}
-      <section className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
+      <section id="sources" className="py-20 px-6 sm:px-12 lg:px-20 max-w-7xl mx-auto w-full">
         <div className="space-y-4">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Sources and references</h2>
           <p className="text-slate-600 text-sm">
@@ -646,13 +718,15 @@ export default function LandingPage() {
               <span className="text-xs font-mono text-blue-600 font-semibold">[1] PayPal Developer Platform</span>
               <p className="text-xs sm:text-sm font-medium text-slate-800">Orders v2 API & Webhooks Verification Standard</p>
             </div>
-            <button 
-              onClick={() => handleAction('Open PayPal Docs')}
+            <a 
+              href="https://developer.paypal.com/docs/api/orders/v2/" 
+              target="_blank" 
+              rel="noreferrer"
               className="text-xs font-semibold text-blue-600 flex items-center space-x-1 cursor-pointer"
             >
               <span>developer.paypal.com</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            </a>
           </div>
 
           <div className="p-4 rounded-md border border-slate-200 bg-white flex items-center justify-between">
@@ -660,27 +734,31 @@ export default function LandingPage() {
               <span className="text-xs font-mono text-blue-600 font-semibold">[2] Spring AI 2.0 Reference</span>
               <p className="text-xs sm:text-sm font-medium text-slate-800">Model Context Protocol (MCP) & Read-Only Tool Execution Safe Bounds</p>
             </div>
-            <button 
-              onClick={() => handleAction('Open Spring AI Docs')}
+            <a 
+              href="https://docs.spring.io/spring-ai/reference/" 
+              target="_blank" 
+              rel="noreferrer"
               className="text-xs font-semibold text-blue-600 flex items-center space-x-1 cursor-pointer"
             >
               <span>docs.spring.io</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            </a>
           </div>
 
           <div className="p-4 rounded-md border border-slate-200 bg-white flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-mono text-blue-600 font-semibold">[3] E-Commerce Payment Reconciliation Survey</span>
-              <p className="text-xs sm:text-sm font-medium text-slate-800">Quantifying Latency and Discrepancy Frequencies across Modern Gateways (2026)</p>
+              <span className="text-xs font-mono text-blue-600 font-semibold">[3] Project Architecture & Rules</span>
+              <p className="text-xs sm:text-sm font-medium text-slate-800">Grounded Evidence Graphs & Exception State Life Cycle Specification</p>
             </div>
-            <button 
-              onClick={() => handleAction('Open Benchmark Whitepaper')}
+            <a 
+              href="https://github.com/Skedare240507/PayResolve-AI/blob/main/docs/architecture.md" 
+              target="_blank" 
+              rel="noreferrer"
               className="text-xs font-semibold text-blue-600 flex items-center space-x-1 cursor-pointer"
             >
-              <span>research.payresolve.org</span>
+              <span>github.com/PayResolve-AI/docs</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            </a>
           </div>
 
           <div className="p-4 rounded-md border border-slate-200 bg-white flex items-center justify-between">
@@ -688,13 +766,15 @@ export default function LandingPage() {
               <span className="text-xs font-mono text-blue-600 font-semibold">[4] MIT License Repository</span>
               <p className="text-xs sm:text-sm font-medium text-slate-800">Official Open Source Hackathon Codebase & Integration Harness</p>
             </div>
-            <button 
-              onClick={() => handleAction('Open GitHub Repo')}
+            <a 
+              href="https://github.com/Skedare240507/PayResolve-AI" 
+              target="_blank" 
+              rel="noreferrer"
               className="text-xs font-semibold text-blue-600 flex items-center space-x-1 cursor-pointer"
             >
-              <span>github.com/payresolve</span>
+              <span>github.com/Skedare240507/PayResolve-AI</span>
               <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            </a>
           </div>
         </div>
       </section>
@@ -718,17 +798,66 @@ export default function LandingPage() {
             >
               Launch Live Demo
             </Link>
-            <button 
-              onClick={() => handleAction('CTA: View Source Code')}
-              className="border border-blue-300/40 bg-blue-950/40 text-white font-semibold text-sm px-5 py-3.5 rounded-md cursor-pointer"
+            <a 
+              href="https://github.com/Skedare240507/PayResolve-AI" 
+              target="_blank" 
+              rel="noreferrer"
+              className="border border-blue-300/40 bg-blue-950/40 text-white font-semibold text-sm px-5 py-3.5 rounded-md cursor-pointer inline-flex items-center space-x-1.5"
             >
-              View GitHub Repo
-            </button>
+              <span>View GitHub Repo</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
       </section>
 
-      {/* ---------------- FOOTER ---------------- */}
+      {/* ---------------- WORKING MODAL ---------------- */}
+      {modalContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                  {modalContent.category}
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-2">{modalContent.title}</h3>
+              </div>
+              <button 
+                onClick={() => setModalContent(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {modalContent.description}
+            </p>
+
+            {modalContent.items && modalContent.items.length > 0 && (
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 font-mono text-xs">
+                {modalContent.items.map((item, idx) => (
+                  <div key={idx} className="text-slate-700 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                onClick={() => setModalContent(null)}
+                className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-md cursor-pointer"
+              >
+                Close Dialog
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- FOOTER WITH WORKING LINKS ---------------- */}
       <footer className="bg-[#f8fafc] border-t border-slate-200 py-16 px-6 sm:px-12 lg:px-20 text-slate-600 text-xs">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-10 pb-12 border-b border-slate-200">
           <div className="md:col-span-2 space-y-3">
@@ -751,30 +880,104 @@ export default function LandingPage() {
           <div>
             <div className="font-bold text-slate-900 text-sm mb-3">Product</div>
             <ul className="space-y-2">
-              <li><Link to="/signin" className="cursor-pointer text-slate-600">Live Console</Link></li>
-              <li><button onClick={() => handleAction('Footer: Evidence Graph')} className="cursor-pointer text-slate-600">Evidence Graph</button></li>
-              <li><button onClick={() => handleAction('Footer: Rule Detectors')} className="cursor-pointer text-slate-600">Rule Detectors</button></li>
-              <li><button onClick={() => handleAction('Footer: Verifier Engine')} className="cursor-pointer text-slate-600">Verifier Engine</button></li>
+              <li><Link to="/signin" className="cursor-pointer text-slate-600 hover:text-blue-600">Live Console</Link></li>
+              <li><button onClick={() => scrollToSection('evidence-graph')} className="cursor-pointer text-slate-600 hover:text-blue-600">Evidence Graph</button></li>
+              <li><button onClick={() => openModal('Rule Detectors', 'Architecture', 'Deterministic rules inspect payment state transitions in <50ms without AI hallucinations.')} className="cursor-pointer text-slate-600 hover:text-blue-600">Rule Detectors</button></li>
+              <li><button onClick={() => openModal('Verifier Engine', 'Architecture', 'Deterministic verifier that audits citations and monetary sums produced by the AI against real database records.')} className="cursor-pointer text-slate-600 hover:text-blue-600">Verifier Engine</button></li>
             </ul>
           </div>
 
           <div>
             <div className="font-bold text-slate-900 text-sm mb-3">Architecture</div>
             <ul className="space-y-2">
-              <li><button onClick={() => handleAction('Footer: Spring Boot API')} className="cursor-pointer text-slate-600">Spring Boot API</button></li>
-              <li><button onClick={() => handleAction('Footer: Spring AI Tools')} className="cursor-pointer text-slate-600">Spring AI Read Tools</button></li>
-              <li><button onClick={() => handleAction('Footer: PayPal Sandbox')} className="cursor-pointer text-slate-600">PayPal Sandbox</button></li>
-              <li><button onClick={() => handleAction('Footer: Flyway & Postgres')} className="cursor-pointer text-slate-600">PostgreSQL Schema</button></li>
+              <li>
+                <a 
+                  href="https://github.com/Skedare240507/PayResolve-AI/tree/main/backend" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>Spring Boot API</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://docs.spring.io/spring-ai/reference/api/chatclient.html" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>Spring AI Read Tools</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://developer.paypal.com/docs/api/orders/v2/" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>PayPal Sandbox</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://github.com/Skedare240507/PayResolve-AI/tree/main/backend/src/main/resources/db/migration" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>PostgreSQL Schema</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
             </ul>
           </div>
 
           <div>
             <div className="font-bold text-slate-900 text-sm mb-3">Governance</div>
             <ul className="space-y-2">
-              <li><button onClick={() => handleAction('Footer: Read-Only Bounds')} className="cursor-pointer text-slate-600">Read-Only Safety Bounds</button></li>
-              <li><button onClick={() => handleAction('Footer: Human Approval')} className="cursor-pointer text-slate-600">Human Approval Protocol</button></li>
-              <li><button onClick={() => handleAction('Footer: MIT License')} className="cursor-pointer text-slate-600">MIT Open Source</button></li>
-              <li><button onClick={() => handleAction('Footer: Devpost Listing')} className="cursor-pointer text-slate-600">Devpost Submission</button></li>
+              <li>
+                <button 
+                  onClick={() => openModal('Read-Only Safety Bounds', 'Security Governance', 'The AI investigator is prohibited from calling mutation endpoints. It only holds read-only inspection access.')} 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600"
+                >
+                  Read-Only Safety Bounds
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => openModal('Human Approval Protocol', 'Security Governance', 'Every action proposal requires manual human confirmation with cryptographic idempotency keys before executing on store or PayPal endpoints.')} 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600"
+                >
+                  Human Approval Protocol
+                </button>
+              </li>
+              <li>
+                <a 
+                  href="https://github.com/Skedare240507/PayResolve-AI/blob/main/LICENSE" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>MIT License</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://paypalaihackathon.devpost.com" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="cursor-pointer text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                >
+                  <span>Devpost Submission</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -784,9 +987,26 @@ export default function LandingPage() {
             &copy; 2026 PayResolve AI. Built for the PayPal AI Hackathon.
           </div>
           <div className="flex items-center space-x-6">
-            <button onClick={() => handleAction('Footer: Privacy')} className="cursor-pointer">Privacy Notice</button>
-            <button onClick={() => handleAction('Footer: Terms')} className="cursor-pointer">Terms of Service</button>
-            <button onClick={() => handleAction('Footer: GitHub')} className="cursor-pointer">GitHub</button>
+            <button 
+              onClick={() => openModal('Privacy Notice', 'Compliance', 'PayResolve AI operates strictly on synthetic, clearly-labelled sandbox data. No real cardholder PANs or customer PII are processed or retained.')} 
+              className="cursor-pointer hover:text-slate-700"
+            >
+              Privacy Notice
+            </button>
+            <button 
+              onClick={() => openModal('Terms of Service', 'Compliance', 'Open-source software provided under the MIT License for hackathon evaluation and demonstration purposes.')} 
+              className="cursor-pointer hover:text-slate-700"
+            >
+              Terms of Service
+            </button>
+            <a 
+              href="https://github.com/Skedare240507/PayResolve-AI" 
+              target="_blank" 
+              rel="noreferrer" 
+              className="cursor-pointer hover:text-slate-700"
+            >
+              GitHub
+            </a>
           </div>
         </div>
       </footer>
