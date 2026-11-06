@@ -1,10 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Mail } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
+import { createPasswordResetToken } from '../lib/authStore';
 
 export default function CheckEmailPage() {
   const [countdown, setCountdown] = useState(28);
+  const [searchParams] = useSearchParams();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const email = searchParams.get('email') || 'operator@payresolve.dev';
+
+  // Run countdown timer
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const handleResend = () => {
+    createPasswordResetToken(email);
+    setCountdown(30);
+    // Restart countdown
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  };
 
   return (
     <AuthLayout>
@@ -14,7 +52,9 @@ export default function CheckEmailPage() {
             Check your email
           </h2>
           <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-            If an account exists for <span className="font-mono text-slate-700 font-medium">operator@payresolve.dev</span>, a reset link is on its way.
+            If an account exists for{' '}
+            <span className="font-mono text-slate-700 font-medium">{email}</span>
+            , a reset link is on its way.
           </p>
         </div>
 
@@ -34,10 +74,7 @@ export default function CheckEmailPage() {
           <button
             type="button"
             disabled={countdown > 0}
-            onClick={() => {
-              setCountdown(30);
-              alert('New password reset link dispatched.');
-            }}
+            onClick={handleResend}
             className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-600 disabled:text-slate-400 font-medium text-xs sm:text-sm border border-slate-200 cursor-pointer disabled:cursor-not-allowed"
           >
             {countdown > 0 ? `Resend in ${countdown} s` : 'Resend reset link'}
@@ -52,10 +89,10 @@ export default function CheckEmailPage() {
             </Link>
 
             <Link
-              to="/reset-password"
+              to={`/reset-password?email=${encodeURIComponent(email)}`}
               className="text-slate-500 hover:text-slate-700 cursor-pointer"
             >
-              Proceed to test reset &rarr;
+              Proceed to reset &rarr;
             </Link>
           </div>
         </div>
