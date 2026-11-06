@@ -10,6 +10,20 @@ jobs:
   backend:
     name: Backend Build & Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: payresolve
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,6 +36,13 @@ jobs:
           cache: 'maven'
 
       - name: Run Maven verification
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/payresolve
+          DB_USER: postgres
+          DB_PASSWORD: postgres_ci_password
+          PAYPAL_CLIENT_ID: mock_ci_client_id
+          PAYPAL_CLIENT_SECRET: mock_ci_secret
+          PAYPAL_WEBHOOK_ID: mock_ci_webhook_id
         run: |
           cd backend
           chmod +x mvnw
