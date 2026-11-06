@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Inbox, 
   Share2, 
@@ -8,6 +8,7 @@ import {
   CheckCircle2, 
   BarChart3
 } from 'lucide-react';
+import { logoutUser, getCurrentUser } from '../lib/authStore';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,8 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
 
   const navItems = [
     { label: 'Queue', path: '/queue', icon: Inbox },
@@ -24,6 +27,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { label: 'Actions', path: '/actions', icon: CheckCircle2 },
     { label: 'Benchmark', path: '/benchmark', icon: BarChart3 },
   ];
+
+  const handleSignOut = () => {
+    logoutUser();
+    navigate('/signed-out');
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex font-sans selection:bg-blue-100">
@@ -78,15 +86,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           </Link>
 
           <div className="flex items-center justify-between text-xs pt-1">
-            <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200">
-              Operator
+            <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200 capitalize">
+              {currentUser?.role ?? 'Operator'}
             </span>
-            <Link 
-              to="/signed-out" 
+            <button
+              onClick={handleSignOut}
               className="text-blue-600 font-medium hover:text-blue-800 cursor-pointer"
             >
               Sign out
-            </Link>
+            </button>
           </div>
         </div>
       </aside>
