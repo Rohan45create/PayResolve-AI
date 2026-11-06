@@ -39,6 +39,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-02 | No money-moving actions in v1 | Safety and scope |
 | 2026-11-02 | Use synthetic, labelled dispute fixtures if the Sandbox Disputes API is not usable | Disputes testing may need extra scopes |
 | 2026-11-02 | License: MIT | Standard, permissive open-source license required by hackathon |
+| 2026-11-06 | Switched managed DB to Supabase | PostgreSQL-compatible cloud DB with built-in SSL and connection pooling |
 | TBD | LLM provider and model | Decide by 3 Nov |
 
 ## Current status
