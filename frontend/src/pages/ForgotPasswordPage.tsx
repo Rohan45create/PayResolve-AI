@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
+import { createPasswordResetToken } from '../lib/authStore';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -15,9 +16,12 @@ export default function ForgotPasswordPage() {
 
     setIsSending(true);
 
+    // Store a reset token against the email (simulated, no real email sent)
+    createPasswordResetToken(email.trim());
+
     setTimeout(() => {
       setIsSending(false);
-      navigate('/check-email');
+      navigate(`/check-email?email=${encodeURIComponent(email.trim())}`);
     }, 700);
   };
 
