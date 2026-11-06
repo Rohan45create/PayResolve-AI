@@ -5,10 +5,10 @@ spring:
   application:
     name: payresolve
   datasource:
-    # Supabase PostgreSQL connection string (supports pooler port 6543 or direct port 5432)
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres?sslmode=require}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
+    # Supabase PostgreSQL connection string (configured via environment variables only)
+    url: ${DATABASE_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -30,12 +30,12 @@ spring:
       hibernate:
         format_sql: true
 
-# PayPal Sandbox configuration
+# PayPal Sandbox configuration (loaded via environment variables only)
 paypal:
   base-url: ${PAYPAL_BASE_URL:https://api-m.sandbox.paypal.com}
-  client-id: ${PAYPAL_CLIENT_ID:mock_client_id}
-  client-secret: ${PAYPAL_CLIENT_SECRET:mock_secret}
-  webhook-id: ${PAYPAL_WEBHOOK_ID:mock_webhook_id}
+  client-id: ${PAYPAL_CLIENT_ID}
+  client-secret: ${PAYPAL_CLIENT_SECRET}
+  webhook-id: ${PAYPAL_WEBHOOK_ID}
 
 management:
   endpoints:
