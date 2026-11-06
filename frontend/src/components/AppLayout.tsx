@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Inbox, 
   Share2, 
-  Radio, 
+  Zap,
   ShoppingBag, 
   CheckCircle2, 
   BarChart3
@@ -20,12 +20,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const currentUser = getCurrentUser();
 
   const navItems = [
-    { label: 'Queue', path: '/queue', icon: Inbox },
-    { label: 'Case', path: '/case/PR-0142', icon: Share2 },
-    { label: 'Events', path: '/status', icon: Radio },
-    { label: 'Demo shop', path: '/shop', icon: ShoppingBag },
-    { label: 'Actions', path: '/actions', icon: CheckCircle2 },
-    { label: 'Benchmark', path: '/benchmark', icon: BarChart3 },
+    { label: 'Queue',     path: '/queue',       icon: Inbox },
+    { label: 'Case',      path: '/case/PR-0142', icon: Share2 },
+    { label: 'Events',    path: '/events',       icon: Zap },
+    { label: 'Demo shop', path: '/shop',          icon: ShoppingBag },
+    { label: 'Actions',   path: '/actions',       icon: CheckCircle2 },
+    { label: 'Benchmark', path: '/benchmark',     icon: BarChart3 },
   ];
 
   const handleSignOut = () => {
