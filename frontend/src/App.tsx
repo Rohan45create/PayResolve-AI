@@ -13,6 +13,8 @@ import DemoShopPage from './pages/DemoShopPage';
 import ActionsAuditPage from './pages/ActionsAuditPage';
 import BenchmarkPage from './pages/BenchmarkPage';
 import SandboxStatusPage from './pages/SandboxStatusPage';
+import EventInboxPage from './pages/EventInboxPage';
+import UIStatesPage from './pages/UIStatesPage';
 import SignedOutPage from './pages/SignedOutPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="/actions" element={<ProtectedRoute><ActionsAuditPage /></ProtectedRoute>} />
         <Route path="/benchmark" element={<ProtectedRoute><BenchmarkPage /></ProtectedRoute>} />
         <Route path="/status" element={<ProtectedRoute><SandboxStatusPage /></ProtectedRoute>} />
+        <Route path="/events" element={<ProtectedRoute><EventInboxPage /></ProtectedRoute>} />
+        <Route path="/ui-states" element={<ProtectedRoute><UIStatesPage /></ProtectedRoute>} />
 
         {/* Catch-all route */}
         <Route path="*" element={<NotFoundPage />} />
