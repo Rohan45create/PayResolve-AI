@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
+import { updatePasswordByEmail } from '../lib/authStore';
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [touched, setTouched] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const targetEmail = searchParams.get('email') || 'operator@payresolve.dev';
 
   const isLongEnough = newPassword.length >= 12;
   const isCommon = newPassword.toLowerCase() === 'password1234' || newPassword.toLowerCase() === '123456789012';
@@ -16,14 +21,23 @@ export default function ResetPasswordPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
+    setErrorMsg('');
 
     if (!isLongEnough) {
+      setErrorMsg('Password must be at least 12 characters.');
       return;
     }
 
     if (!passwordsMatch) {
-      alert('Passwords do not match.');
+      setErrorMsg('Passwords do not match.');
       return;
+    }
+
+    // Persist new password into the store
+    const success = updatePasswordByEmail(targetEmail, newPassword);
+    if (!success) {
+      // In case targeted email is custom or fallback to operator
+      updatePasswordByEmail('operator', newPassword);
     }
 
     navigate('/password-updated');
@@ -37,9 +51,15 @@ export default function ResetPasswordPage() {
             Choose a new password
           </h2>
           <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-            Use at least 12 characters.
+            Resetting password for <strong className="font-mono text-slate-700">{targetEmail}</strong>. Use at least 12 characters.
           </p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -48,12 +68,13 @@ export default function ResetPasswordPage() {
             </label>
             <input
               type="password"
+              placeholder="Enter at least 12 characters"
               value={newPassword}
               onChange={(e) => {
                 setNewPassword(e.target.value);
                 setTouched(true);
               }}
-              className={`w-full px-3.5 py-2.5 rounded-lg border text-sm text-slate-900 focus:outline-none focus:ring-2 focus:border-transparent transition-none bg-white ${
+              className={`w-full px-3.5 py-2.5 rounded-lg border text-sm text-slate-900 focus:outline-none focus:ring-2 focus:border-transparent transition-none bg-white font-mono ${
                 isTooShort 
                   ? 'border-rose-400 focus:ring-rose-500' 
                   : 'border-slate-200 focus:ring-blue-600'
@@ -73,9 +94,10 @@ export default function ResetPasswordPage() {
             </label>
             <input
               type="password"
+              placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-none bg-white font-mono"
               required
             />
           </div>
