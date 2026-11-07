@@ -76,3 +76,4 @@ export const PayResolveLogo: React.FC<{
     </div>
   );
 };
+

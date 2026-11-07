@@ -47,3 +47,6 @@ design
 bin/
 target/
 *.class
+
+# Scratch & temporary artifacts
+scratch/
