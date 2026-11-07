@@ -20,3 +20,4 @@ public record PaymentRecord(
         return Money.of(amountMinor, currency);
     }
 }
+

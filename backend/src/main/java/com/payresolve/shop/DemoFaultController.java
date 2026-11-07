@@ -1,5 +1,7 @@
 package com.payresolve.shop;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,10 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Controller exposing demo fault switches for testing exception workflows.
+ * Controller exposing demo fault injection switches for testing payment exception workflows.
  */
 @RestController
 @RequestMapping("/demo/faults")
+@Tag(name = "Demo Faults", description = "Fault injection switches for demo scenarios")
 public class DemoFaultController {
 
     private static final Logger log = LoggerFactory.getLogger(DemoFaultController.class);
@@ -23,11 +26,13 @@ public class DemoFaultController {
     }
 
     @GetMapping
+    @Operation(summary = "Get current demo fault switches state")
     public DemoFaultsDto getFaults() {
         return DemoFaultsDto.fromSwitches(faultSwitches);
     }
 
     @PostMapping
+    @Operation(summary = "Update demo fault switches")
     public DemoFaultsDto updateFaults(@RequestBody DemoFaultsDto dto) {
         if (dto.failWebhookHandler() != null) {
             faultSwitches.setFailWebhookHandler(dto.failWebhookHandler());
@@ -48,6 +53,7 @@ public class DemoFaultController {
     }
 
     @PostMapping("/reset")
+    @Operation(summary = "Reset all demo fault switches to false")
     public DemoFaultsDto resetFaults() {
         faultSwitches.reset();
         log.info("Reset all demo fault switches to false");

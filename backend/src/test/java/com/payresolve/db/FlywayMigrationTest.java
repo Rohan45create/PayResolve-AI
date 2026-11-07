@@ -44,7 +44,7 @@ class FlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
         assertThat(result.success).isTrue();
-        assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(2);
+        assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(3);
 
         // 2. Verify all expected tables exist in PostgreSQL information_schema
         Set<String> expectedTables = Set.of(
@@ -62,7 +62,9 @@ class FlywayMigrationTest {
                 "users",
                 "password_reset_tokens",
                 "benchmark_runs",
-                "keepalive"
+                "keepalive",
+                "products",
+                "demo_fault_switches"
         );
 
         Set<String> actualTables = new HashSet<>();

@@ -24,4 +24,12 @@ public record ShopOrder(
     public boolean isPaid() {
         return "PAID".equalsIgnoreCase(status);
     }
+
+    public boolean isAwaitingConfirmation() {
+        return "AWAITING_CONFIRMATION".equalsIgnoreCase(status);
+    }
+
+    public boolean isPending() {
+        return "PENDING".equalsIgnoreCase(status);
+    }
 }

@@ -153,3 +153,33 @@ CREATE TABLE IF NOT EXISTS keepalive (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     pinged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS products (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price_minor BIGINT NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('mug', 'Ceramic mug', 2400, 'USD', 'Handcrafted ceramic mug (12 oz)');
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('tote', 'Canvas tote', 3850, 'USD', 'Heavyweight 100% organic cotton canvas tote bag');
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('notebook', 'Notebook set', 2200, 'USD', 'Pack of 3 dot-grid softcover pocket notebooks');
+
+CREATE TABLE IF NOT EXISTS demo_fault_switches (
+    id VARCHAR(50) PRIMARY KEY,
+    fail_webhook_handler BOOLEAN DEFAULT FALSE NOT NULL,
+    drop_webhook BOOLEAN DEFAULT FALSE NOT NULL,
+    alter_order_total BOOLEAN DEFAULT FALSE NOT NULL,
+    duplicate_delivery BOOLEAN DEFAULT FALSE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+MERGE INTO demo_fault_switches (id, fail_webhook_handler, drop_webhook, alter_order_total, duplicate_delivery) KEY(id)
+VALUES ('DEFAULT', FALSE, FALSE, FALSE, FALSE);

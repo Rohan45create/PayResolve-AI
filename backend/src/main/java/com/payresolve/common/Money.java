@@ -68,6 +68,19 @@ public record Money(long amountMinor, String currency) implements Serializable, 
         return this.amountMinor < 0L;
     }
 
+    /**
+     * Converts minor units to a double major unit amount solely for presentation/display purposes.
+     */
+    public double asMajorUnits() {
+        try {
+            Currency c = Currency.getInstance(this.currency);
+            int fractionDigits = Math.max(0, c.getDefaultFractionDigits());
+            return this.amountMinor / Math.pow(10, fractionDigits);
+        } catch (Exception e) {
+            return this.amountMinor / 100.0;
+        }
+    }
+
     public void ensureSameCurrency(Money other) {
         Objects.requireNonNull(other, "Other money must not be null");
         if (!this.currency.equalsIgnoreCase(other.currency)) {
