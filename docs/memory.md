@@ -52,6 +52,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Backend config externalization | Secrets and connection strings exist solely in local .env; application.yml is gitignored and copied from application.yml.example; safe test-only settings in src/test/resources/application.yml |
 | 2026-11-07 | Dockerfile and CI config preparation | The Dockerfile must copy application.yml.example to application.yml before building; tests use src/test/resources/application.yml |
 | 2026-11-07 | Backend foundation on Spring Boot 4.1 | Upgraded to Spring Boot 4.1.2, Java 21; added Spring Data JDBC, Flyway, PostgreSQL driver, springdoc-openapi 3.2.0, Spring AI Google GenAI (Gemini) chat starter 2.0.2, Testcontainers, WireMock; created all 9 packages from architecture.md; implemented Money record, injected Clock bean, global ProblemDetail handler; all APIs mapped under /api; multi-stage Dockerfile with 512MB RAM budget; render.yaml updated for Docker web service API and static UI with free plan fallback |
+| 2026-11-07 | Supabase schema and keep-alive | Created Flyway V1__init.sql (all 14 tables from architecture.md section 8, BIGINT minor units, unique constraints on webhook_events.paypal_event_id and proposed_actions.idempotency_key, queue and inbox indexes) and V2__keepalive.sql (public.keepalive with RLS and anon policy; also saved to supabase/keepalive.sql). Configured Session pooler (IPv4, port 5432) and documented IPv6/prepared-statement caveats. Added .github/workflows/supabase-keepalive.yml (2-day cron + workflow_dispatch) and Testcontainers-based FlywayMigrationTest. |
 
 ## Backend cleanup findings
 
@@ -73,7 +74,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Docs (prd, architecture, phases, rules, memory) | DONE | Aligned with 7 Nov decisions |
 | Repo, CI, scaffolds | DONE | Spring Boot 4.1.2 foundation, Dockerfile, render.yaml, packages & common domain types in place |
 | Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
-| Database & Keepalive Action | DOING | Supabase free Postgres (Session pooler) + GitHub Action keepalive |
+| Database & Keepalive Action | DONE | Flyway V1/V2, Session pooler config, keepalive table & workflow active |
 | Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
 | PayPal Sandbox app and credentials | TODO | Day 1 |
 | Create, approve, capture a Sandbox order | TODO | Day 2 |
@@ -113,6 +114,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - WebMvcConfigurer method in Spring Framework 7 is configurePathMatch (not configurePathMatching).
 - Spring Boot 4 MockMvc autoconfiguration is in org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc (from spring-boot-starter-webmvc-test).
 - Spring AI 2.0.2 Google GenAI uses properties spring.ai.google.genai.api-key and spring.ai.google.genai.chat.options.model.
+- Supabase direct connection is IPv6 only; transaction pooler (port 6543) breaks prepared statements. Always use the Session pooler (port 5432) with JDBC.
 - Confirm in the docs whether webhook-simulator events pass signature verification before relying on them.
 
 ## Glossary

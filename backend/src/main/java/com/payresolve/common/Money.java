@@ -108,3 +108,4 @@ public record Money(long amountMinor, String currency) implements Serializable, 
         return format();
     }
 }
+

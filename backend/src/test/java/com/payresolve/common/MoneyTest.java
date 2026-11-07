@@ -74,3 +74,4 @@ class MoneyTest {
         assertThat(Money.of(-100L, "USD").isNegative()).isTrue();
     }
 }
+

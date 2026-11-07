@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8.svg)](https://tailwindcss.com/)
 
@@ -34,10 +34,11 @@ Operators typically spend 15–30 minutes bouncing between tabs trying to piece 
 
 ```
 payresolve/
-├── backend/               # Spring Boot (Java 21, Spring AI, Flyway, Postgres)
+├── backend/               # Spring Boot 4.1.2 (Java 21, Spring AI, Spring Data JDBC, Flyway, Postgres)
 ├── frontend/              # React 19, TypeScript strict, Vite, Tailwind v4, AG Grid, React Flow
 ├── docs/                  # Architecture, PRD, phases, rules, memory docs
 ├── infra/                 # Docker Compose, Render deployment configurations
+├── supabase/              # Supabase SQL initialization scripts (keepalive.sql)
 ├── postman/               # Postman collection & environment for API testing
 ├── .env.example           # Environment template (no secrets)
 ├── LICENSE                # MIT License
@@ -47,8 +48,34 @@ payresolve/
 ### Technology Stack & Disclosures
 - **PayPal Integration**: PayPal Orders v2, Captures, Refunds, and Webhooks APIs.
 - **Frontend**: React 19, TypeScript (`strict: true`), Vite, Tailwind CSS v4, AG Grid Community (exception queue), React Flow / `@xyflow/react` (evidence graph), TanStack Query.
-- **Backend**: Java 21, Spring Boot, Spring AI, Spring Security, Flyway, PostgreSQL.
-- **Hosting & Infrastructure**: Render (Docker web service for backend, static site for frontend, managed PostgreSQL).
+- **Backend**: Java 21, Spring Boot 4.1.2, Spring AI 2.0.2 (Google Gemini), Spring Security 7, Spring Data JDBC, Flyway, PostgreSQL driver.
+- **Database**: Managed PostgreSQL on Supabase (Session Pooler) or local Docker Postgres.
+- **Hosting & Infrastructure**: Render (Docker web service for backend, static site for frontend).
+
+---
+
+## Database & Supabase Configuration
+
+### Supabase Connection Mode (Session Pooler)
+When connecting to Supabase PostgreSQL, always configure the **Session pooler** connection string (port 5432):
+- **Direct connection** (`db.[REF].supabase.co:5432`) is IPv6 only, which fails on environments without IPv6 routing (such as Render standard/free services or select CI runners).
+- **Transaction pooler** (`aws-0-[REGION].pooler.supabase.com:6543`) requires disabling prepared statements (`prepareThreshold=0`), which impacts query performance and Flyway migration compatibility.
+- **Session pooler** (`aws-0-[REGION].pooler.supabase.com:5432`) provides full IPv4 routing, supports prepared statements, connection pooling via HikariCP, and Flyway migrations seamlessly out-of-the-box.
+
+**Format:**
+```
+DATABASE_URL=jdbc:postgresql://aws-0-[REGION].pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.[PROJECT_REF]
+DB_PASSWORD=your_supabase_db_password
+```
+
+### Supabase Keep-Alive Automation
+Supabase free-tier projects automatically pause after 7 days of inactivity. To prevent the project from sleeping during hackathon evaluation:
+
+1. **Keepalive Table (`public.keepalive`)**:
+   Created via Flyway migration `V2__keepalive.sql` (or executed manually via [`supabase/keepalive.sql`](supabase/keepalive.sql) in the Supabase SQL Editor). It contains an auto-incrementing ID, ping timestamp, and Row Level Security (RLS) policies allowing the `anon` role to select and insert ping records.
+2. **Scheduled GitHub Action**:
+   [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml) runs every 2 days (`0 0 */2 * *`) and can also be triggered manually (`workflow_dispatch`). It issues an authenticated POST ping to `${SUPABASE_URL}/rest/v1/keepalive` with `SUPABASE_ANON_KEY`, validates the HTTP status, and fails loudly if not 2xx.
 
 ---
 
@@ -59,15 +86,15 @@ Clone and run the complete demo locally in under 15 minutes:
 ### 1. Prerequisites
 - **Java 21** or later
 - **Node.js 20+** and `npm`
-- **Docker** and Docker Compose (for PostgreSQL)
+- **Docker** and Docker Compose (optional for local PostgreSQL)
 
 ### 2. Configure Environment
 ```bash
 cp .env.example .env
 ```
-Fill in your PayPal Sandbox credentials and LLM API key in `.env`.
+Fill in your Supabase or local PostgreSQL credentials, PayPal Sandbox credentials, and Gemini API key in `.env`.
 
-### 3. Launch Database
+### 3. Launch Database (if running local Postgres)
 ```bash
 docker compose -f infra/docker-compose.yml up -d
 ```
