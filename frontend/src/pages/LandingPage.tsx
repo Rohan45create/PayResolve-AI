@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { PayResolveMark } from '../components/PayResolveLogo';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { GoogleIcon } from '../components/GoogleIcon';
-import { ArrowUpRight } from 'lucide-react';
 
 export default function LandingPage() {
   return (
@@ -851,19 +850,19 @@ export default function LandingPage() {
                 <li>
                   <a href="https://devpost.com" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>PayPal AI Hackathon</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
                 <li>
                   <a href="https://devpost.com" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>Official rules</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
                 <li>
                   <a href="https://devpost.com" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>Project gallery</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
               </ul>
@@ -876,19 +875,19 @@ export default function LandingPage() {
                 <li>
                   <a href="https://chargebacks911.com/2026-chargeback-field-report/" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>2026 Chargeback Field Report</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
                 <li>
                   <a href="https://www.chargeback.io/blog/chargeback-statistics" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>Chargeback statistics</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
                 <li>
                   <a href="https://forkast.news/the-agentic-commerce-liability-gap-who-pays-when-the-agent-buys-wrong/" target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-0.5">
                     <span>Agentic liability gap</span>
-                    <ArrowUpRight className="w-3 h-3" />
+                    <GoogleIcon name="arrow_outward" size={13} />
                   </a>
                 </li>
               </ul>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wifi, RotateCw } from 'lucide-react';
+import { GoogleIcon } from '../components/GoogleIcon';
 import { Link, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../components/ThemeToggle';
 
@@ -31,7 +31,7 @@ export default function SandboxStatusPage() {
       <div className="w-full max-w-lg text-center space-y-6">
         {/* Wifi icon */}
         <div className="flex justify-center">
-          <Wifi className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+          <GoogleIcon name="wifi" size={26} className="text-emerald-600 dark:text-emerald-400" />
         </div>
 
         {/* Title & subtitle */}
@@ -74,7 +74,7 @@ export default function SandboxStatusPage() {
             disabled={retrying}
             className="px-5 py-2.5 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all flex items-center space-x-2"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${retrying ? 'animate-spin' : ''}`} />
+            <GoogleIcon name="refresh" size={15} className={`text-white ${retrying ? 'animate-spin' : ''}`} />
             <span>{retrying ? 'Retrying...' : 'Retrying'}</span>
           </button>
           <Link

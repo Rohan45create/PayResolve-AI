@@ -84,11 +84,14 @@ async function run() {
 
       // Preset localStorage auth and theme
       await context.addInitScript((m) => {
-        localStorage.setItem('payresolve_auth_token', 'mock-token-operator');
-        localStorage.setItem(
-          'payresolve_user',
-          JSON.stringify({ username: 'operator', role: 'operator' }),
-        );
+        const user = {
+          username: 'operator',
+          role: 'operator',
+          email: 'operator@payresolve.dev',
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('payresolve_current_user', JSON.stringify(user));
+        localStorage.setItem('payresolve_theme', m);
         localStorage.setItem('payresolve-theme', m);
         if (m === 'dark') {
           document.documentElement.classList.add('dark');

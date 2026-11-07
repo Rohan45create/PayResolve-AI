@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Menu,
-  GitFork,
-  Activity,
-  ShoppingBag,
-  CheckCircle2,
-  BarChart3,
-  X,
-} from 'lucide-react';
+import { GoogleIcon } from './GoogleIcon';
 import { logoutUser, getCurrentUser } from '../lib/authStore';
 import { PayResolveLogo } from './PayResolveLogo';
 import { ThemeToggle } from './ThemeToggle';
@@ -18,12 +10,12 @@ interface AppLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Queue', path: '/queue', icon: Menu },
-  { label: 'Case', path: '/case/PR-0142', icon: GitFork },
-  { label: 'Events', path: '/events', icon: Activity },
-  { label: 'Demo shop', path: '/shop', icon: ShoppingBag },
-  { label: 'Actions', path: '/actions', icon: CheckCircle2 },
-  { label: 'Benchmark', path: '/benchmark', icon: BarChart3 },
+  { label: 'Queue', path: '/queue', icon: 'list_alt' },
+  { label: 'Case', path: '/case/PR-0142', icon: 'account_tree' },
+  { label: 'Events', path: '/events', icon: 'bolt' },
+  { label: 'Demo shop', path: '/shop', icon: 'shopping_bag' },
+  { label: 'Actions', path: '/actions', icon: 'task_alt' },
+  { label: 'Benchmark', path: '/benchmark', icon: 'bar_chart' },
 ];
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
@@ -56,10 +48,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <ThemeToggle />
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center cursor-pointer"
             aria-label="Toggle navigation menu"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <GoogleIcon name="close" size={20} /> : <GoogleIcon name="menu" size={20} />}
           </button>
         </div>
       </div>
@@ -68,7 +60,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white dark:bg-[#0d131f] border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-1">
           {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
             const active = isActive(item.path);
             return (
               <Link
@@ -81,14 +72,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <GoogleIcon
+                  name={item.icon}
+                  size={18}
+                  className={active ? 'text-slate-900 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}
+                />
                 <span>{item.label}</span>
               </Link>
             );
           })}
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
             <span className="text-slate-500">Role: {currentUser?.role || 'Operator'}</span>
-            <button onClick={handleSignOut} className="text-blue-600 dark:text-blue-400 font-medium">
+            <button onClick={handleSignOut} className="text-blue-600 dark:text-blue-400 font-medium cursor-pointer">
               Sign out
             </button>
           </div>
@@ -106,7 +101,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           {/* Flat Navigation List matching PNG exactly */}
           <nav className="space-y-1 text-sm font-normal">
             {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
               const active = isActive(item.path);
               return (
                 <Link
@@ -118,8 +112,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900/50'
                   }`}
                 >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 stroke-[1.8] ${
+                  <GoogleIcon
+                    name={item.icon}
+                    size={18}
+                    className={`shrink-0 ${
                       active ? 'text-slate-900 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
                     }`}
                   />

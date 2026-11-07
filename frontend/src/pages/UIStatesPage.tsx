@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { PayResolveMark } from '../components/PayResolveLogo';
-import { Loader2 } from 'lucide-react';
+import { GoogleIcon } from '../components/GoogleIcon';
 
 export default function UIStatesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -277,7 +277,7 @@ export default function UIStatesPage() {
                     Approve
                   </button>
                   <button className="px-5 py-2.5 rounded-lg bg-[#0066cc] text-white font-medium text-xs sm:text-sm shadow-sm flex items-center space-x-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <GoogleIcon name="progress_activity" size={14} className="animate-spin text-white inline-block" />
                     <span>Approving</span>
                   </button>
                   <button disabled className="px-5 py-2.5 rounded-lg bg-blue-400 dark:bg-blue-500/50 text-white font-medium text-xs sm:text-sm cursor-not-allowed">

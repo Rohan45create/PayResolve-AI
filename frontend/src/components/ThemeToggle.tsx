@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon } from 'lucide-react';
 import { GoogleIcon } from './GoogleIcon';
 import { toggleTheme, type ThemeMode } from '../lib/theme';
 
@@ -66,9 +65,9 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', varian
       className={`p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.97] transition-all cursor-pointer inline-flex items-center justify-center ${className}`}
     >
       {isDark ? (
-        <Sun className="w-4 h-4 text-amber-400" />
+        <GoogleIcon name="light_mode" size={16} className="text-amber-400" />
       ) : (
-        <Moon className="w-4 h-4 text-slate-600" />
+        <GoogleIcon name="dark_mode" size={16} className="text-slate-600 dark:text-slate-300" />
       )}
     </button>
   );
