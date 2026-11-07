@@ -53,6 +53,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Dockerfile and CI config preparation | The Dockerfile must copy application.yml.example to application.yml before building; tests use src/test/resources/application.yml |
 | 2026-11-07 | Backend foundation on Spring Boot 4.1 | Upgraded to Spring Boot 4.1.2, Java 21; added Spring Data JDBC, Flyway, PostgreSQL driver, springdoc-openapi 3.2.0, Spring AI Google GenAI (Gemini) chat starter 2.0.2, Testcontainers, WireMock; created all 9 packages from architecture.md; implemented Money record, injected Clock bean, global ProblemDetail handler; all APIs mapped under /api; multi-stage Dockerfile with 512MB RAM budget; render.yaml updated for Docker web service API and static UI with free plan fallback |
 | 2026-11-07 | Supabase schema and keep-alive | Created Flyway V1__init.sql (all 14 tables from architecture.md section 8, BIGINT minor units, unique constraints on webhook_events.paypal_event_id and proposed_actions.idempotency_key, queue and inbox indexes) and V2__keepalive.sql (public.keepalive with RLS and anon policy; also saved to supabase/keepalive.sql). Configured Session pooler (IPv4, port 5432) and documented IPv6/prepared-statement caveats. Added .github/workflows/supabase-keepalive.yml (2-day cron + workflow_dispatch) and Testcontainers-based FlywayMigrationTest. |
+| 2026-11-07 | PayPal sandbox client & WireMock suite | Implemented full PayPal sandbox client (com.payresolve.paypal): OAuth token cache with proactive 120s buffer refresh; Orders v2 create (custom_id=shopOrderId), get, server-side capture; read-only payments (captures, refunds); webhook signature verification (verify-webhook-signature); live disputes with automatic synthetic fixture fallback (clearly marked synthetic: true / source: "SYNTHETIC"); RestClient with connect (5s) and read (10s) timeouts, jitter retry, credential redaction; comprehensive WireMock test suite covering token cache, 401 refresh, orders, payments, signature verification, transient retry, and dispute fallback; updated Postman collection & environment. |
 
 ## Backend cleanup findings
 
@@ -76,11 +77,11 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
 | Database & Keepalive Action | DONE | Flyway V1/V2, Session pooler config, keepalive table & workflow active |
 | Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
-| PayPal Sandbox app and credentials | TODO | Day 1 |
-| Create, approve, capture a Sandbox order | TODO | Day 2 |
+| PayPal Sandbox app and credentials | DONE | Client, properties, in-memory OAuth token manager with proactive refresh |
+| Create, approve, capture a Sandbox order | DONE | Orders v2 client (custom_id = shop order id), capture, WireMock tests & Postman flow |
 | Webhook endpoint on a public URL | TODO | Day 2 |
-| Disputes API access check | TODO | Day 2 |
-| Signature verification and event inbox | TODO | Day 3 |
+| Disputes API access check | DONE | Live disputes query with automatic labelled synthetic fallback on 401/403 |
+| Signature verification and event inbox | DOING | Webhook signature verification client tested with WireMock; inbox pipeline next |
 | Render deployment skeleton | TODO | Paid with hackathon credits, free-plan fallback |
 | Demo shop and fault switches | TODO | Day 4 |
 | Detectors (P0) | TODO | Day 5 |
@@ -116,6 +117,10 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - Spring AI 2.0.2 Google GenAI uses properties spring.ai.google.genai.api-key and spring.ai.google.genai.chat.options.model.
 - Supabase direct connection is IPv6 only; transaction pooler (port 6543) breaks prepared statements. Always use the Session pooler (port 5432) with JDBC.
 - Confirm in the docs whether webhook-simulator events pass signature verification before relying on them.
+- Jackson 3 in Spring Boot 4.1.2 defaults DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES to true. When PayPal JSON payloads omit internal flags like synthetic (boolean), Jackson throws MismatchedInputException. Use object Boolean with null-safe default constructor logic and @JsonIgnoreProperties(ignoreUnknown = true).
+- Spring IoC constructor resolution: When a bean class defines multiple constructors and neither is annotated with @Autowired, Spring searches for a no-arg default constructor and throws NoSuchMethodException. Maintain exactly one constructor per bean for clean constructor injection.
+- Spring Framework 7 HttpHeaders.containsHeader(String) replaces legacy map containsKey() checks.
+- PayPal Disputes API sandbox scopes: Developer sandbox REST apps commonly lack dispute scopes (HTTP 403 Forbidden). LivePayPalDisputesClient automatically falls back to SyntheticDisputesProvider with explicit synthetic: true and source: "SYNTHETIC" markings.
 
 ## Glossary
 
@@ -140,3 +145,4 @@ Keep to one line per session; roll old entries up when this grows.
 
 - 2026-11-02: Chose PayResolve, wrote the five project docs, locked the stack.
 - 2026-11-02: Initialized git, created repository folder structure (backend, frontend, docs, infra, postman, .github/workflows), added MIT License, .env.example, README.md, .gitignore, and synced docs.
+- 2026-11-07: Built paypal module (OAuth token cache, Orders v2, read-only payments, webhook signature verification, live + synthetic disputes, RestClient timeouts & jitter retry, 8 WireMock tests, updated Postman assets).

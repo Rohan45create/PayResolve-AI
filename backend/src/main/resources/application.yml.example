@@ -62,6 +62,9 @@ payresolve:
     client-id: ${PAYPAL_CLIENT_ID:}
     client-secret: ${PAYPAL_CLIENT_SECRET:}
     webhook-id: ${PAYPAL_WEBHOOK_ID:}
+    connect-timeout-ms: ${PAYPAL_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${PAYPAL_READ_TIMEOUT_MS:10000}
+    use-synthetic-disputes: ${PAYPAL_USE_SYNTHETIC_DISPUTES:false}
   ai:
     provider: ${AI_PROVIDER:gemini}
   auth:

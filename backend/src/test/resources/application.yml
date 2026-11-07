@@ -52,6 +52,9 @@ payresolve:
     client-id: test_client_id
     client-secret: test_client_secret
     webhook-id: test_webhook_id
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
+    use-synthetic-disputes: false
   ai:
     provider: gemini
   auth:
