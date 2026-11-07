@@ -93,6 +93,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Demo shop and fault switches | DONE | Products catalog, orders, PayPal checkout & capture, AWAITING_CONFIRMATION lifecycle, refunds, simulated shipments, DB-backed fault switches |
 | Detectors (P0) | DONE | Pure detectors for PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE; rerun dedupe, lifecycle transitions & seed API |
 | AG Grid queue (AG Studio / Prize target) | DONE | Integrated AG Grid Community v36 with custom status/severity cells, search, filters & export |
+| AG Studio Operations page (Prize target) | DONE | Route /operations with AG Studio 3.1.0, 3 custom PayResolve widgets (Cases by Type, Time to Root Cause, Evidence Coverage), Studio Agent Framework telemetry assistant, edit/reader modes, light/dark theming, behind login |
 | Evidence graph and timeline | DONE | Graph and chronological timeline derived at read time from case_evidence items; missing nodes & dashed edges; GET /api/cases/{id}/graph & /timeline |
 | AI investigator (Google Gemini via Spring AI) | DONE | Tool-calling agent with 8 read-only tools, structured report, deterministic verifier, auditable step log, and rate limit fallback cache |
 | Actions, approval, audit, login | DONE | Human-in-the-loop actions (SYNC_ORDER_STATUS, HOLD_REFUND flag, REQUEST_REVIEW), append-only audit_log, Spring Security session auth + CSRF, OPERATOR / VIEWER RBAC, on-screen demo password reset |
@@ -148,6 +149,10 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - SpringDoc api-docs path with global MVC prefix: When `WebMvcConfigurer.addPathPrefix("/api")` is active, `springdoc.api-docs.path` must be `/v3/api-docs` rather than `/api/v3/api-docs` to avoid double prefixing (`/api/api/v3/api-docs`).
 - AG Grid Community v36 module registration: In AG Grid Community v36+, modules must be explicitly registered via `ModuleRegistry.registerModules([AllCommunityModule])` and `@ag-grid-community/styles/ag-grid.css` loaded.
 - React Flow v12 smoothstep edge dashing: Missing links and synthetic edges in React Flow can be styled with `strokeDasharray: '4 4'`, `MarkerType.ArrowClosed`, and amber tokens `#f59e0b` to indicate unfulfilled invariants.
+- AG Studio createWidgets menu validation: AG Studio 3.1.0 enforces that the defaultType (default 'grid') must be explicitly present in at least one category of the menu parameter array; passing an empty menu or omitting defaultType throws 'widget defaultType must be present in the menu'.
+- AG Studio TypeScript registry type parameter: When registering custom React widgets, createWidgets<any> and <AgStudio<any> ...> allow registering custom widget IDs without conflicting with AgDefaultRegistry widget discriminator unions.
+- Playwright fullPage screenshot memory management: When capturing fullPage screenshots across numerous data-heavy routes in a single browser context, creating and closing a fresh page per route (context.newPage() ... page.close()) prevents Chromium renderer crashes and memory exhaustion.
+- AG Studio license configuration: AG Studio accepts trial/enterprise keys via AgStudioLicenseManager.setLicenseKey(key) and LicenseManager.setLicenseKey(key) without committing secrets to git, enabled via VITE_AG_LICENSE env variable.
 
 ## Glossary
 
@@ -180,3 +185,4 @@ Keep to one line per session; roll old entries up when this grows.
 - 2026-11-07: Built investigator module (Spring AI ChatClient with 8 read-only @Tool methods, structured output, deterministic verifier, token/cost limits, latency logging in investigation_steps, offline fallback cache, 9 tests).
 - 2026-11-07: Built actions, audit & auth module (propose/approve/reject actions, idempotent side-effects, append-only audit_log, Spring Security session cookies + CSRF, BCrypt seeded operator/viewer, VIEWER-only sign-up, demo password reset with 15-min token and on-screen notice, 18 tests).
 - 2026-11-07: Wired frontend to real backend API (TanStack Query, openapi-typescript client, real session auth + CSRF, AG Grid queue with sorting & filters, @xyflow/react evidence graph with dashed MISSING nodes, AI investigator panel with live step log, all pages wired, alert() eliminated, 40 Playwright route screenshots verified with 0 visual regressions, all 113 backend tests passing).
+- 2026-11-07: Added AG Studio Operations page (/operations) with 3 custom PayResolve widgets (Cases by Type, Time to Root Cause 2,250x benchmark speedup, Evidence Coverage invariants), Studio Agent Framework telemetry assistant, viewer/edit layout modes, light/dark mode synchronization, and 42 Playwright route screenshots verified.

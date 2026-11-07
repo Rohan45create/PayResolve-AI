@@ -18,6 +18,7 @@ import BenchmarkPage from './pages/BenchmarkPage';
 import SandboxStatusPage from './pages/SandboxStatusPage';
 import EventInboxPage from './pages/EventInboxPage';
 import UIStatesPage from './pages/UIStatesPage';
+import OperationsPage from './pages/OperationsPage';
 import SignedOutPage from './pages/SignedOutPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/benchmark" element={<ProtectedRoute><BenchmarkPage /></ProtectedRoute>} />
           <Route path="/status" element={<ProtectedRoute><SandboxStatusPage /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute><EventInboxPage /></ProtectedRoute>} />
+          <Route path="/operations" element={<ProtectedRoute><OperationsPage /></ProtectedRoute>} />
           <Route path="/ui-states" element={<ProtectedRoute><UIStatesPage /></ProtectedRoute>} />
 
           {/* Catch-all route */}

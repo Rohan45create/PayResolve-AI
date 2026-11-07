@@ -46,3 +46,4 @@ export const PayResolveSpinner: React.FC<PayResolveSpinnerProps> = ({
     </div>
   );
 };
+

@@ -24,6 +24,7 @@ const ROUTES = [
   { name: 'demo-shop', path: '/shop' },
   { name: 'actions-audit', path: '/actions' },
   { name: 'benchmark', path: '/benchmark' },
+  { name: 'operations', path: '/operations' },
   { name: 'sandbox-unreachable', path: '/status' },
   { name: 'empty-error-feedback-states', path: '/ui-states' },
   { name: 'loading-states', path: '/ui-states?tab=loading' },
@@ -100,9 +101,8 @@ async function run() {
         }
       }, mode);
 
-      const page = await context.newPage();
-
       for (const route of ROUTES) {
+        const page = await context.newPage();
         const url = `${baseUrl}${route.path}`;
         try {
           await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
@@ -123,6 +123,8 @@ async function run() {
           console.log(`  ✓ Saved: ${route.name}-${mode}.png`);
         } catch (err) {
           console.error(`  ✗ Failed route ${route.path}:`, err.message);
+        } finally {
+          await page.close().catch(() => {});
         }
       }
 
@@ -132,7 +134,10 @@ async function run() {
     await browser.close();
     console.log(`\nAll screenshots successfully saved to ${outputDir}`);
   } finally {
-    devServer.kill();
+    try {
+      devServer.kill();
+    } catch {}
+    process.exit(0);
   }
 }
 

@@ -12,6 +12,7 @@ interface AppLayoutProps {
 const NAV_ITEMS = [
   { label: 'Queue', path: '/queue', icon: 'list_alt' },
   { label: 'Case', path: '/case/PR-0142', icon: 'account_tree' },
+  { label: 'Operations', path: '/operations', icon: 'dashboard' },
   { label: 'Events', path: '/events', icon: 'bolt' },
   { label: 'Demo shop', path: '/shop', icon: 'shopping_bag' },
   { label: 'Actions', path: '/actions', icon: 'task_alt' },
