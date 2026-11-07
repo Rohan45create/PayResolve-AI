@@ -33,7 +33,7 @@ public class SecurityConfig {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/actuator/**", "/api/webhooks/**", "/api/events/**", "/api/demo/**", "/api/shop/**", "/v3/api-docs/**", "/swagger-ui/**")
+                .ignoringRequestMatchers("/actuator/**", "/api/webhooks/**", "/api/events/**", "/api/demo/**", "/api/shop/**", "/api/cases/**", "/v3/api-docs/**", "/swagger-ui/**")
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**").permitAll()

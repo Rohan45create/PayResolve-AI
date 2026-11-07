@@ -28,6 +28,7 @@ public class WebhookWorkerService {
     private final WebhookEventRepository repository;
     private final ShopOrderService shopOrderService;
     private final DemoFaultSwitches faultSwitches;
+    private final com.payresolve.cases.CaseDetectionService caseDetectionService;
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
@@ -39,6 +40,7 @@ public class WebhookWorkerService {
         WebhookEventRepository repository,
         ShopOrderService shopOrderService,
         DemoFaultSwitches faultSwitches,
+        com.payresolve.cases.CaseDetectionService caseDetectionService,
         Clock clock,
         ObjectMapper objectMapper,
         @Value("${payresolve.ingest.max-attempts:3}") int maxAttempts,
@@ -48,6 +50,7 @@ public class WebhookWorkerService {
         this.repository = repository;
         this.shopOrderService = shopOrderService;
         this.faultSwitches = faultSwitches;
+        this.caseDetectionService = caseDetectionService;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.maxAttempts = maxAttempts;
@@ -126,6 +129,7 @@ public class WebhookWorkerService {
 
             repository.markProcessed(event.id(), clock.instant());
             log.info("Successfully marked webhook event {} as PROCESSED", event.paypalEventId());
+            caseDetectionService.detectForEvent(event);
             return true;
         } catch (Exception e) {
             log.error("Error processing webhook event {}: {}", event.paypalEventId(), e.getMessage(), e);

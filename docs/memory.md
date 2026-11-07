@@ -56,6 +56,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | PayPal sandbox client & WireMock suite | Implemented full PayPal sandbox client (com.payresolve.paypal): OAuth token cache with proactive 120s buffer refresh; Orders v2 create (custom_id=shopOrderId), get, server-side capture; read-only payments (captures, refunds); webhook signature verification (verify-webhook-signature); live disputes with automatic synthetic fixture fallback (clearly marked synthetic: true / source: "SYNTHETIC"); RestClient with connect (5s) and read (10s) timeouts, jitter retry, credential redaction; comprehensive WireMock test suite covering token cache, 401 refresh, orders, payments, signature verification, transient retry, and dispute fallback; updated Postman collection & environment. |
 | 2026-11-07 | Webhook inbox, deduplication & worker architecture | Implemented durable webhook_events inbox under /api/webhooks/paypal and /api/events. Unverified events stored with verified=false and never processed; duplicate event IDs return 200 without inserting; background worker claims PENDING events with FOR UPDATE SKIP LOCKED with exponential backoff; idempotent business effects guarded by state checks and payment capture ID; demo fault switches honored (fail handler, drop webhook, duplicate delivery); 8-case integration test suite including 10x webhook replay verification. |
 | 2026-11-07 | Demo shop and database-backed fault switches | Implemented demo shop catalog (seeded 3 items: Ceramic mug $24, Canvas tote $38.50, Notebook set $22), order creation with minor unit calculation, PayPal checkout and server-side capture. Order transitions to AWAITING_CONFIRMATION on capture and moves to PAID only upon verified webhook processing. Added simulated refunds and shipments. Fault switches persisted in demo_fault_switches with in-memory atomic mirrors, guarded by payresolve.demo-mode, reset endpoint, and ORD- prefix for order URLs. |
+| 2026-11-07 | Cases module and pure detector architecture | Implemented Detector interface and 5 pure detector classes (PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE) operating over immutable DetectionSnapshot. Enforced single case per (type, paypalOrderId) with rerun updates. Connected event-driven detection in WebhookWorkerService and on-demand detection via POST /api/cases/detect. Supported full case lifecycle (OPEN, INVESTIGATING, ACTION_PROPOSED, RESOLVED, DISMISSED), pagination and filtering, and seeded canonical cases matching the exception queue frontend. |
 
 ## Backend cleanup findings
 
@@ -86,7 +87,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Signature verification and event inbox | DONE | Webhook signature verification, durable inbox, FOR UPDATE SKIP LOCKED worker, stats, replay |
 | Render deployment skeleton | TODO | Paid with hackathon credits, free-plan fallback |
 | Demo shop and fault switches | DONE | Products catalog, orders, PayPal checkout & capture, AWAITING_CONFIRMATION lifecycle, refunds, simulated shipments, DB-backed fault switches |
-| Detectors (P0) | TODO | Day 5 |
+| Detectors (P0) | DONE | Pure detectors for PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE; rerun dedupe, lifecycle transitions & seed API |
 | AG Grid queue (AG Studio / Prize target) | TODO | Day 6 |
 | Evidence graph and timeline | TODO | Day 7 |
 | AI investigator (Google Gemini via Spring AI) | TODO | Configurable by env vars; free tier |
@@ -130,6 +131,8 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - H2 (v2.3) does not support PostgreSQL's `ON CONFLICT (id) DO NOTHING` on multi-row `INSERT` statements; use portable `MERGE INTO ... KEY(id) VALUES ...` for test seed scripts.
 - Jackson 3 package layout in Spring Boot 4.1.x: Object mapper is in `tools.jackson.databind.ObjectMapper`, but annotations reside in `com.fasterxml.jackson.annotation.*` (`tools.jackson.annotation` does not exist).
 - Order status lifecycle invariant: Order status moves to `AWAITING_CONFIRMATION` upon capture; only the verified webhook worker transitions the order to `PAID`. This allows fault switches (`failWebhookHandler`, `dropWebhook`) to cleanly simulate broken reconciliation.
+- Global MVC prefix: Spring WebMvcConfigurer `addPathPrefix("/api")` automatically prepends `/api` to all `@RestController` endpoints; declaring `@RequestMapping("/cases")` produces `/api/cases`, whereas declaring `@RequestMapping("/api/cases")` results in 404 (`/api/api/cases`).
+- Money parsing from external APIs: PayPal Amount values (e.g. `"84.50"`) must be converted using `Money.parse(value, currency)` rather than `Money.of(long, currency)` to prevent type conversion errors and preserve decimal-to-minor scale fidelity.
 
 ## Glossary
 
@@ -157,3 +160,4 @@ Keep to one line per session; roll old entries up when this grows.
 - 2026-11-07: Built paypal module (OAuth token cache, Orders v2, read-only payments, webhook signature verification, live + synthetic disputes, RestClient timeouts & jitter retry, 8 WireMock tests, updated Postman assets).
 - 2026-11-07: Built ingest module (POST /api/webhooks/paypal with fast 200, signature verification, duplicate event deduplication, background worker with FOR UPDATE SKIP LOCKED & backoff, idempotent payment effects, demo fault switches, Event Inbox & stats API, 8 integration tests including 10x replay, and Cloudflare Tunnel guide).
 - 2026-11-07: Built shop module (products catalog, create order, checkout and server-side capture, refunds, shipments, DB-backed fault switches under /api/shop and /api/demo/faults, Flyway V3, 6 integration tests).
+- 2026-11-07: Built cases module (Detector interface, 5 pure detector classes: PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE; event-driven & on-demand detection, rerun deduplication, full lifecycle status transitions, pagination/filtering API, seed endpoint, Flyway V4, and 38 unit & integration tests).

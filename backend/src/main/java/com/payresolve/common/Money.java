@@ -56,6 +56,11 @@ public record Money(long amountMinor, String currency) implements Serializable, 
         return new Money(Math.subtractExact(this.amountMinor, other.amountMinor), this.currency);
     }
 
+    public Money difference(Money other) {
+        ensureSameCurrency(other);
+        return new Money(Math.abs(this.amountMinor - other.amountMinor), this.currency);
+    }
+
     public boolean isZero() {
         return this.amountMinor == 0L;
     }

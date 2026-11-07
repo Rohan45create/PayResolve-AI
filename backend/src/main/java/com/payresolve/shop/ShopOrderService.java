@@ -118,6 +118,29 @@ public class ShopOrderService {
             .optional();
     }
 
+    public Optional<ShopOrder> findOrderByPayPalOrderId(String paypalOrderId) {
+        if (paypalOrderId == null || paypalOrderId.isBlank()) {
+            return Optional.empty();
+        }
+        return jdbcClient.sql("""
+            SELECT id, paypal_order_id, status, total_minor, currency, customer_label, created_at, updated_at
+            FROM shop_orders
+            WHERE paypal_order_id = :paypalOrderId
+            """)
+            .param("paypalOrderId", paypalOrderId)
+            .query((rs, rowNum) -> new ShopOrder(
+                rs.getString("id"),
+                rs.getString("paypal_order_id"),
+                rs.getString("status"),
+                rs.getLong("total_minor"),
+                rs.getString("currency"),
+                rs.getString("customer_label"),
+                rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant() : null,
+                rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toInstant() : null
+            ))
+            .optional();
+    }
+
     public List<ShopOrder> findAllOrders(int limit, int offset) {
         return jdbcClient.sql("""
             SELECT id, paypal_order_id, status, total_minor, currency, customer_label, created_at, updated_at

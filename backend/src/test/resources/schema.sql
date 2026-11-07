@@ -64,10 +64,15 @@ CREATE TABLE IF NOT EXISTS cases (
     severity VARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
     paypal_order_id VARCHAR(100),
     shop_order_id VARCHAR(100),
+    amount_minor BIGINT,
+    currency VARCHAR(3) DEFAULT 'USD',
     opened_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP WITH TIME ZONE,
     summary TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cases_type_paypal_order ON cases(type, paypal_order_id);
 
 CREATE TABLE IF NOT EXISTS case_evidence (
     id VARCHAR(100) PRIMARY KEY,

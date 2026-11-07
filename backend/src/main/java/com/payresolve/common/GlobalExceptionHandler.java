@@ -10,6 +10,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.NoSuchElementException;
 
 /**
  * Global REST exception handler mapping application exceptions into
