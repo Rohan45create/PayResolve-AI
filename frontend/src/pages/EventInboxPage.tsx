@@ -1,24 +1,17 @@
 import { useState } from 'react';
 import { AppLayout } from '../components/AppLayout';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type SigStatus = 'Verified' | 'Unverified';
-type ProcStatus = 'Processed' | 'Failed' | 'Duplicate' | 'Received';
-
 interface WebhookEvent {
   eventId: string;
   type: string;
   resource: string;
-  signature: SigStatus;
-  status: ProcStatus;
+  signature: 'Verified' | 'Unverified';
+  status: 'Processed' | 'Failed' | 'Duplicate' | 'Received';
   tries: number;
   at: string;
   rawPayload: string;
-  attempts: { label: string; note: string; variant: 'error' | 'info' | 'success' }[];
+  attempts: { label: string; statusText: string; isError?: boolean }[];
 }
-
-// ─── Seed data ────────────────────────────────────────────────────────────────
 
 const SEED_EVENTS: WebhookEvent[] = [
   {
@@ -32,8 +25,8 @@ const SEED_EVENTS: WebhookEvent[] = [
     rawPayload:
       '{"event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{"id":"8XK","status":"COMPLETED","amount":{"value":"84.50","currency_code":"USD"},"custom_id":"10482"}}',
     attempts: [
-      { label: 'Attempt 1', note: 'failed — handler error', variant: 'error' },
-      { label: 'Attempt 2', note: 'duplicate, no effect', variant: 'info' },
+      { label: 'Attempt 1', statusText: 'failed handler error', isError: true },
+      { label: 'Attempt 2', statusText: 'duplicate, no effect', isError: false },
     ],
   },
   {
@@ -47,7 +40,7 @@ const SEED_EVENTS: WebhookEvent[] = [
     rawPayload:
       '{"event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{"id":"8XK","status":"COMPLETED","amount":{"value":"84.50","currency_code":"USD"},"custom_id":"10482"}}',
     attempts: [
-      { label: 'Attempt 1', note: 'duplicate detected — skipped', variant: 'info' },
+      { label: 'Attempt 1', statusText: 'duplicate, no effect', isError: false },
     ],
   },
   {
@@ -61,7 +54,7 @@ const SEED_EVENTS: WebhookEvent[] = [
     rawPayload:
       '{"event_type":"PAYMENT.CAPTURE.COMPLETED","resource":{"id":"4TM","status":"COMPLETED","amount":{"value":"32.00","currency_code":"USD"},"custom_id":"10477"}}',
     attempts: [
-      { label: 'Attempt 1', note: 'handler succeeded', variant: 'success' },
+      { label: 'Attempt 1', statusText: 'handler succeeded', isError: false },
     ],
   },
   {
@@ -75,7 +68,7 @@ const SEED_EVENTS: WebhookEvent[] = [
     rawPayload:
       '{"event_type":"PAYMENT.CAPTURE.REFUNDED","resource":{"id":"2QD","status":"COMPLETED","amount":{"value":"18.00","currency_code":"USD"},"custom_id":"10470"}}',
     attempts: [
-      { label: 'Attempt 1', note: 'handler succeeded', variant: 'success' },
+      { label: 'Attempt 1', statusText: 'handler succeeded', isError: false },
     ],
   },
   {
@@ -87,195 +80,171 @@ const SEED_EVENTS: WebhookEvent[] = [
     tries: 0,
     at: '09:40:02',
     rawPayload:
-      '{"event_type":"CHECKOUT.ORDER.APPROVED","resource":{"id":"6HJ","status":"APPROVED","purchase_units":[{"amount":{"value":"120.00","currency_code":"USD"}}],"custom_id":"10466"}}',
-    attempts: [],
+      '{"event_type":"CHECKOUT.ORDER.APPROVED","resource":{"id":"6HJ","status":"APPROVED","intent":"CAPTURE"}}',
+    attempts: [
+      { label: 'Attempt 1', statusText: 'enqueued for processing', isError: false },
+    ],
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const statusConfig: Record<ProcStatus, { label: string; classes: string }> = {
-  Processed: { label: 'Processed', classes: 'border-emerald-400 text-emerald-700 bg-emerald-50' },
-  Failed:    { label: 'Failed',    classes: 'border-rose-400 text-rose-700 bg-rose-50' },
-  Duplicate: { label: 'Duplicate', classes: 'border-slate-400 text-slate-600 bg-slate-50' },
-  Received:  { label: 'Received',  classes: 'border-amber-400 text-amber-700 bg-amber-50' },
-};
-
-const sigConfig: Record<SigStatus, string> = {
-  Verified:   'border-emerald-400 text-emerald-700 bg-emerald-50',
-  Unverified: 'border-rose-400 text-rose-700 bg-rose-50',
-};
-
-function StatusPill({ status }: { status: ProcStatus }) {
-  const { label, classes } = statusConfig[status];
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${classes}`}>
-      {label}
-    </span>
-  );
-}
-
-function SigPill({ sig }: { sig: SigStatus }) {
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${sigConfig[sig]}`}>
-      {sig}
-    </span>
-  );
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function EventInboxPage() {
-  const [events, setEvents] = useState<WebhookEvent[]>(SEED_EVENTS);
-  const [selectedIdx, setSelectedIdx] = useState<number>(0);
-
-  const kpi = {
-    received: events.length + 209,
-    verified: events.filter((e) => e.signature === 'Verified').length + 209,
-    processed: events.filter((e) => e.status === 'Processed').length + 205,
-    failedOrDup: events.filter((e) => e.status === 'Failed' || e.status === 'Duplicate').length + 5,
-  };
-
-  const selected = events[selectedIdx];
-
-  const handleSampleData = () => {
-    setEvents(SEED_EVENTS);
-    setSelectedIdx(0);
-  };
+  const [selectedEvent, setSelectedEvent] = useState<WebhookEvent>(SEED_EVENTS[0]);
 
   const handleReplay = () => {
-    if (!selected) return;
-    // Simulate a replay: reset status to Received with tries = 0
-    setEvents((prev) =>
-      prev.map((e, i) =>
-        i === selectedIdx
-          ? { ...e, status: 'Received', tries: 0, attempts: [], at: new Date().toTimeString().slice(0, 8) }
-          : e
-      )
-    );
+    alert(`Replaying ${selectedEvent.eventId}: dispatched to idempotency-aware webhook receiver.`);
   };
 
   return (
     <AppLayout>
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Event inbox</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Every PayPal webhook, stored raw before it is processed.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSampleData}
-            className="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 cursor-pointer"
-          >
-            Sample data
-          </button>
-          <button
-            onClick={handleReplay}
-            className="px-3.5 py-1.5 rounded-lg bg-[#0066d6] hover:bg-blue-700 text-white text-xs font-semibold shadow-sm cursor-pointer"
-          >
-            Replay event
-          </button>
-        </div>
-      </div>
-
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Received',          value: kpi.received },
-          { label: 'Verified',          value: kpi.verified },
-          { label: 'Processed',         value: kpi.processed },
-          { label: 'Failed or duplicate', value: kpi.failedOrDup },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>
-            <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
+      <div className="max-w-7xl mx-auto space-y-7">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Event inbox
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Every PayPal webhook, stored raw before it is processed.
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* ── Main Split ── */}
-      <div className="flex gap-5 items-start">
-        {/* Left: event table */}
-        <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-500 font-semibold">
-                <th className="text-left px-4 py-3">Event</th>
-                <th className="text-left px-4 py-3">Type</th>
-                <th className="text-left px-4 py-3">Resource</th>
-                <th className="text-left px-4 py-3">Signature</th>
-                <th className="text-left px-4 py-3">Status</th>
-                <th className="text-left px-4 py-3">Tries</th>
-                <th className="text-left px-4 py-3">At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((evt, i) => (
-                <tr
-                  key={`${evt.eventId}-${i}`}
-                  onClick={() => setSelectedIdx(i)}
-                  className={`border-b border-slate-50 cursor-pointer transition-colors ${
-                    selectedIdx === i ? 'bg-blue-50' : 'hover:bg-slate-50'
-                  }`}
-                >
-                  <td className="px-4 py-3 font-mono font-bold text-slate-800">{evt.eventId}</td>
-                  <td className="px-4 py-3 text-slate-700 font-mono">{evt.type}</td>
-                  <td className="px-4 py-3 text-slate-500 font-mono">{evt.resource}</td>
-                  <td className="px-4 py-3">
-                    <SigPill sig={evt.signature} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={evt.status} />
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 text-center">{evt.tries}</td>
-                  <td className="px-4 py-3 text-slate-500 font-mono">{evt.at}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => alert('Sample event stream fixture reloaded.')}
+              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
+            >
+              Sample data
+            </button>
+            <button
+              onClick={handleReplay}
+              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
+            >
+              Replay event
+            </button>
+          </div>
         </div>
 
-        {/* Right: detail panel */}
-        {selected && (
-          <div className="w-80 shrink-0 bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        {/* 4 Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
+            <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Received</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">214</div>
+          </div>
+          <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
+            <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Verified</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">214</div>
+          </div>
+          <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
+            <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Processed</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">207</div>
+          </div>
+          <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
+            <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Failed or duplicate</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">7</div>
+          </div>
+        </div>
+
+        {/* 2-Column Content: Table & Detail Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Left Table */}
+          <div className="lg:col-span-8 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs p-6 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-normal">
+                    <th className="py-2.5 pr-3 font-normal">Event</th>
+                    <th className="py-2.5 px-3 font-normal">Type</th>
+                    <th className="py-2.5 px-3 font-normal">Resource</th>
+                    <th className="py-2.5 px-3 font-normal">Signature</th>
+                    <th className="py-2.5 px-3 font-normal">Status</th>
+                    <th className="py-2.5 px-3 font-normal">Tries</th>
+                    <th className="py-2.5 pl-3 font-normal">At</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {SEED_EVENTS.map((evt, idx) => {
+                    const isSelected = selectedEvent.eventId === evt.eventId && selectedEvent.at === evt.at;
+
+                    const statusBadge =
+                      evt.status === 'Failed' ? (
+                        <span className="px-2.5 py-0.5 rounded-full border border-rose-400 dark:border-rose-700 text-rose-600 dark:text-rose-400 text-xs">
+                          Failed
+                        </span>
+                      ) : evt.status === 'Duplicate' ? (
+                        <span className="px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
+                          Duplicate
+                        </span>
+                      ) : evt.status === 'Processed' ? (
+                        <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
+                          Processed
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
+                          Received
+                        </span>
+                      );
+
+                    return (
+                      <tr
+                        key={`${evt.eventId}-${idx}`}
+                        onClick={() => setSelectedEvent(evt)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-slate-50 dark:bg-[#152033]'
+                            : 'hover:bg-slate-50/50 dark:hover:bg-[#121b2b]'
+                        }`}
+                      >
+                        <td className="py-3.5 pr-3 font-medium text-slate-900 dark:text-white">{evt.eventId}</td>
+                        <td className="py-3.5 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{evt.type}</td>
+                        <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{evt.resource}</td>
+                        <td className="py-3.5 px-3">
+                          <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
+                            {evt.signature}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3">{statusBadge}</td>
+                        <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400">{evt.tries}</td>
+                        <td className="py-3.5 pl-3 font-mono text-slate-500 dark:text-slate-400">{evt.at}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Right Detail Card */}
+          <div className="lg:col-span-4 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs p-6 space-y-4">
             <div>
-              <p className="text-sm font-bold text-slate-900">{selected.eventId}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Raw payload and processing log</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{selectedEvent.eventId}</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Raw payload and processing log</p>
             </div>
 
-            {/* Raw JSON */}
-            <pre className="bg-[#f0f4f9] rounded-lg p-3 text-[10px] font-mono text-slate-700 leading-relaxed overflow-x-auto whitespace-pre-wrap break-all border border-slate-100">
-              {selected.rawPayload}
-            </pre>
+            {/* Code box */}
+            <div className="p-3.5 rounded-xl bg-[#edf3fa] dark:bg-[#131d2e] border border-blue-200/40 dark:border-blue-900/40 font-mono text-xs text-slate-800 dark:text-slate-200 break-all leading-relaxed">
+              {selectedEvent.rawPayload}
+            </div>
 
-            {/* Attempt log */}
-            {selected.attempts.length > 0 ? (
-              <div className="space-y-2">
-                {selected.attempts.map((a, ai) => (
-                  <div key={ai}>
-                    <span
-                      className={`text-xs font-bold ${
-                        a.variant === 'error'
-                          ? 'text-rose-600'
-                          : a.variant === 'success'
-                          ? 'text-emerald-600'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      {a.label}
-                    </span>{' '}
-                    <span className="text-xs text-slate-500">{a.note}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No processing attempts yet.</p>
-            )}
+            {/* Processing attempts */}
+            <div className="space-y-3 pt-2 text-xs">
+              {selectedEvent.attempts.map((att, i) => (
+                <div key={i} className="text-slate-700 dark:text-slate-300">
+                  <span className="font-semibold text-slate-900 dark:text-white mr-1.5">{att.label}</span>
+                  {att.isError ? (
+                    <>
+                      <span className="text-rose-600 dark:text-rose-400 font-medium">failed</span>{' '}
+                      <span>{att.statusText.replace('failed ', '')}</span>
+                    </>
+                  ) : (
+                    <span>{att.statusText}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        )}
+
+        </div>
       </div>
     </AppLayout>
   );

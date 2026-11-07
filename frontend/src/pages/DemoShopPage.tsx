@@ -16,7 +16,7 @@ const products: Product[] = [
 export default function DemoShopPage() {
   const [cart, setCart] = useState<{ [id: string]: number }>({
     mug: 1,
-    tote: 1
+    tote: 1,
   });
 
   // Fault switches
@@ -29,29 +29,28 @@ export default function DemoShopPage() {
   const [orders, setOrders] = useState([
     { id: '#10482', status: 'Pending' },
     { id: '#10479', status: 'Paid' },
-    { id: '#10477', status: 'Paid' }
+    { id: '#10477', status: 'Paid' },
   ]);
 
   const addToCart = (id: string) => {
-    setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-  };
-
-  const calculateTotal = () => {
-    return Object.entries(cart).reduce((sum, [id, qty]) => {
-      const prod = products.find(p => p.id === id);
-      return sum + (prod ? prod.price * qty : 0);
-    }, 0);
+    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   };
 
   const handlePayPalCheckout = () => {
     const newOrderId = `#${Math.floor(10483 + Math.random() * 100)}`;
     const newStatus = failWebhook ? 'Pending' : 'Paid';
-    
-    setOrders(prev => [{ id: newOrderId, status: newStatus }, ...prev]);
-    
-    alert(`PayPal Sandbox order created! 
-Capture executed: $${calculateTotal().toFixed(2)} USD.
-${failWebhook ? 'Fault Switch Active: Webhook handler simulated failure. Order marked as PENDING in store.' : 'Order marked as PAID.'}`);
+    setOrders((prev) => [{ id: newOrderId, status: newStatus }, ...prev]);
+    const totalAmount = Object.entries(cart).reduce((sum, [pid, qty]) => {
+      const p = products.find((x) => x.id === pid);
+      return sum + (p ? p.price * qty : 0);
+    }, 0);
+    alert(
+      `PayPal Sandbox payment submitted for $${totalAmount > 0 ? totalAmount.toFixed(2) : '62.50'}.\n${
+        failWebhook
+          ? 'Fault simulated: webhook failed handler. Order remains Pending in merchant store.'
+          : 'Payment captured and marked Paid.'
+      }`,
+    );
   };
 
   const handleResetState = () => {
@@ -59,48 +58,49 @@ ${failWebhook ? 'Fault Switch Active: Webhook handler simulated failure. Order m
     setDropWebhook(false);
     setAlterTotal(false);
     setDuplicateDelivery(false);
-    alert('Fault switches reset to baseline demonstration state.');
   };
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-7">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Demo shop
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               A tiny merchant for real Sandbox payments. Fault switches break it on purpose.
             </p>
           </div>
-
           <div>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+            <span className="px-3.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-normal">
               Sandbox
             </span>
           </div>
         </div>
 
-        {/* 2 Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* 2-Column Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Left: Products & Checkout */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* Left Column: Products & Checkout */}
+          <div className="lg:col-span-8 space-y-6">
             
-            {/* Product Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {products.map(prod => (
-                <div key={prod.id} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-slate-900 text-sm">{prod.name}</h4>
-                    <div className="text-sm font-semibold text-slate-600 font-mono">${prod.price.toFixed(2)}</div>
+            {/* Products grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {products.map((prod) => (
+                <div
+                  key={prod.id}
+                  className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 flex items-center justify-between shadow-2xs"
+                >
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{prod.name}</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">${prod.price.toFixed(2)}</p>
                   </div>
                   <button
                     onClick={() => addToCart(prod.id)}
-                    className="px-4 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-xs cursor-pointer"
+                    className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
                   >
                     Add
                   </button>
@@ -109,113 +109,113 @@ ${failWebhook ? 'Fault Switch Active: Webhook handler simulated failure. Order m
             </div>
 
             {/* Checkout Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
-              <h3 className="font-bold text-slate-900 text-base">Checkout</h3>
+            <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-4 shadow-2xs">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Checkout</h2>
 
-              <div className="divide-y divide-slate-100 text-xs sm:text-sm">
-                {Object.entries(cart).map(([id, qty]) => {
-                  const prod = products.find(p => p.id === id);
-                  if (!prod || qty <= 0) return null;
-                  return (
-                    <div key={id} className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-700">{prod.name} x {qty}</span>
-                      <span className="font-mono text-slate-900 font-medium">${(prod.price * qty).toFixed(2)}</span>
-                    </div>
-                  );
-                })}
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-sm">
+                <div className="py-2.5 flex items-center justify-between text-slate-700 dark:text-slate-300">
+                  <span>Ceramic mug x 1</span>
+                  <span>$24.00</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between text-slate-700 dark:text-slate-300">
+                  <span>Canvas tote x 1</span>
+                  <span>$38.50</span>
+                </div>
+                <div className="py-3 flex items-center justify-between font-semibold text-slate-900 dark:text-white">
+                  <span>Total</span>
+                  <span>$62.50</span>
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-base font-bold text-slate-900">
-                <span>Total</span>
-                <span className="font-mono">${calculateTotal().toFixed(2)}</span>
+              <div className="pt-2 space-y-2">
+                <button
+                  onClick={handlePayPalCheckout}
+                  className="px-5 py-2.5 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all"
+                >
+                  Pay with PayPal Sandbox
+                </button>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Approve with the sandbox buyer account. Capture happens on the server.
+                </p>
               </div>
-
-              <button
-                onClick={handlePayPalCheckout}
-                className="w-full py-3 px-4 rounded-xl bg-[#0066d6] hover:bg-blue-700 text-white font-semibold text-sm shadow-xs cursor-pointer flex items-center justify-center space-x-2"
-              >
-                <span>Pay with PayPal Sandbox</span>
-              </button>
-
-              <p className="text-[11px] text-slate-400 text-center">
-                Approve with the sandbox buyer account. Capture happens on the server.
-              </p>
             </div>
 
           </div>
 
-          {/* Right: Fault Switches & Recent Orders */}
-          <div className="lg:col-span-5 space-y-6">
+          {/* Right Column: Fault Switches & Recent Orders */}
+          <div className="lg:col-span-4 space-y-6">
             
             {/* Fault Switches Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-slate-900 text-base">Fault switches</h3>
-                <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+            <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Fault switches</h2>
+                <span className="px-2.5 py-0.5 rounded-full border border-amber-600/50 text-amber-600 dark:text-amber-400 text-xs font-normal">
                   Demo only
                 </span>
               </div>
 
-              <div className="space-y-4 pt-1">
-                
+              <div className="space-y-4 text-xs sm:text-sm">
+                {/* Switch 1 */}
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={failWebhook}
                     onChange={(e) => setFailWebhook(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 mt-0.5"
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Fail webhook handler</div>
-                    <div className="text-[11px] text-slate-500">Capture succeeds, order stays pending</div>
+                    <span className="font-semibold text-slate-900 dark:text-white block">Fail webhook handler</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Capture succeeds, order stays pending</span>
                   </div>
                 </label>
 
+                {/* Switch 2 */}
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={dropWebhook}
                     onChange={(e) => setDropWebhook(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 mt-0.5"
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Drop webhook</div>
-                    <div className="text-[11px] text-slate-500">PayPal event never reaches the app</div>
+                    <span className="font-semibold text-slate-900 dark:text-white block">Drop webhook</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">PayPal event never reaches the app</span>
                   </div>
                 </label>
 
+                {/* Switch 3 */}
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={alterTotal}
                     onChange={(e) => setAlterTotal(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 mt-0.5"
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Alter order total</div>
-                    <div className="text-[11px] text-slate-500">Order total differs from the capture</div>
+                    <span className="font-semibold text-slate-900 dark:text-white block">Alter order total</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Order total differs from the capture</span>
                   </div>
                 </label>
 
+                {/* Switch 4 */}
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={duplicateDelivery}
                     onChange={(e) => setDuplicateDelivery(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300 mt-0.5"
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Duplicate delivery</div>
-                    <div className="text-[11px] text-slate-500">Same event delivered twice</div>
+                    <span className="font-semibold text-slate-900 dark:text-white block">Duplicate delivery</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Same event delivered twice</span>
                   </div>
                 </label>
-
               </div>
 
-              <div className="pt-2 border-t border-slate-100">
+              <div className="pt-2">
                 <button
                   onClick={handleResetState}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-xs cursor-pointer"
+                  className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
                 >
                   Reset demo state
                 </button>
@@ -223,18 +223,20 @@ ${failWebhook ? 'Fault Switch Active: Webhook handler simulated failure. Order m
             </div>
 
             {/* Recent Orders Card */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-              <h3 className="font-bold text-slate-900 text-base">Recent orders</h3>
+            <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-4 shadow-2xs">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Recent orders</h2>
 
-              <div className="divide-y divide-slate-100 text-xs sm:text-sm">
-                {orders.map((ord, idx) => (
-                  <div key={idx} className="py-2.5 flex items-center justify-between">
-                    <span className="font-mono text-slate-900 font-semibold">{ord.id}</span>
-                    <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${
-                      ord.status === 'Pending'
-                        ? 'border-amber-300 text-amber-700 bg-amber-50/60'
-                        : 'border-emerald-300 text-emerald-700 bg-emerald-50/60'
-                    }`}>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs sm:text-sm">
+                {orders.map((ord) => (
+                  <div key={ord.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
+                    <span className="font-mono text-slate-700 dark:text-slate-300">{ord.id}</span>
+                    <span
+                      className={`px-3 py-0.5 rounded-full border text-xs font-normal ${
+                        ord.status === 'Pending'
+                          ? 'border-amber-600/60 text-amber-600 dark:text-amber-400'
+                          : 'border-emerald-600/60 text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
                       {ord.status}
                     </span>
                   </div>
@@ -245,7 +247,6 @@ ${failWebhook ? 'Fault Switch Active: Webhook handler simulated failure. Order m
           </div>
 
         </div>
-
       </div>
     </AppLayout>
   );

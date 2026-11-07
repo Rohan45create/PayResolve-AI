@@ -42,4 +42,8 @@ logs/
 *.log
 
 design
-bin
+
+# Java & Maven
+bin/
+target/
+*.class

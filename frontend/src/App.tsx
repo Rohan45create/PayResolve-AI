@@ -18,12 +18,14 @@ import UIStatesPage from './pages/UIStatesPage';
 import SignedOutPage from './pages/SignedOutPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
+import ServerErrorPage from './pages/ServerErrorPage';
+import RedirectingPage from './pages/RedirectingPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
+        {/* Public auth & landing routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/login" element={<SignInPage />} />
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="/signed-out" element={<SignedOutPage />} />
         <Route path="/403" element={<ForbiddenPage />} />
         <Route path="/404" element={<NotFoundPage />} />
+        <Route path="/500" element={<ServerErrorPage />} />
+        <Route path="/redirecting" element={<RedirectingPage />} />
 
         {/* Protected dashboard routes */}
         <Route path="/queue" element={<ProtectedRoute><ExceptionQueuePage /></ProtectedRoute>} />

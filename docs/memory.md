@@ -46,6 +46,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Target partners & prizes | Use PayPal, APIMatic Context Plugin, AG Studio (AG Grid prize), Render, Postman. Skip Bryntum, Elastic, Zapier, Astropods, KERNEL, Channel3 |
 | 2026-11-07 | Schedule & milestones | Today is 7 Nov. Feature freeze end of 10 Nov. Submit by 12 Nov 6:00 pm IST (hard deadline 12:00 pm PST, 12 Nov) |
 | 2026-11-07 | Frontend integration status | Frontend is built by teammate and currently uses mock data and localStorage auth; will be wired to the backend API |
+| 2026-11-07 | Frontend design verification & matching | Verified all 20 design PNG pairs against frontend routes. Redesigned landing, updated auth layout, matched all stat cards, evidence graph, audit log, benchmark, event inbox, demo shop, and UI states. Created /500 and /redirecting. Added dark mode toggle across app and 150ms / 0.97 scale transitions |
 
 ## Current status
 
@@ -55,6 +56,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 |---|---|---|
 | Docs (prd, architecture, phases, rules, memory) | DONE | Aligned with 7 Nov decisions |
 | Repo, CI, scaffolds | DONE | Backend (Boot 3.4.2 -> 4.1.x next) & frontend scaffolds verified |
+| Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
 | Database & Keepalive Action | DOING | Supabase free Postgres (Session pooler) + GitHub Action keepalive |
 | Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
 | PayPal Sandbox app and credentials | TODO | Day 1 |
