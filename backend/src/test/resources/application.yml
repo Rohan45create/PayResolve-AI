@@ -8,12 +8,16 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
   flyway:
     enabled: false
+  ai:
+    google:
+      genai:
+        api-key: dummy-test-api-key
+        chat:
+          options:
+            model: gemini-2.0-flash
+          enabled: false
 
 server:
   port: 0
@@ -28,17 +32,28 @@ management:
       probes:
         enabled: true
 
+springdoc:
+  api-docs:
+    path: /api/v3/api-docs
+  swagger-ui:
+    path: /api/swagger-ui.html
+
 payresolve:
   public-url: http://localhost:8080
   demo-mode: true
   session-timeout: 30m
   cors:
     allowed-origins: http://localhost:5173
+  supabase:
+    url: https://test-ref.supabase.co
+    anon-key: test-anon-key
   paypal:
     base-url: https://api-m.sandbox.paypal.com
     client-id: test_client_id
     client-secret: test_client_secret
     webhook-id: test_webhook_id
+  ai:
+    provider: gemini
   auth:
     operator-username: operator
     operator-password: test_operator_password

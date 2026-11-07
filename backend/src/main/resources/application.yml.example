@@ -7,23 +7,22 @@ spring:
     import:
       - optional:file:.env[.properties]
       - optional:file:../.env[.properties]
-  # Enabled in the next step (datasource, Flyway, Spring AI Gemini):
-  # datasource:
-  #   url: ${DATABASE_URL}
-  #   username: ${DB_USER}
-  #   password: ${DB_PASSWORD}
-  #   hikari:
-  #     maximum-pool-size: 5
-  # flyway:
-  #   enabled: true
-  # ai:
-  #   google:
-  #     genai:
-  #       api-key: ${GEMINI_API_KEY}
-  #       chat:
-  #         options:
-  #           model: ${AI_MODEL}
-  # (Confirm the exact Spring AI property names in the official docs before enabling.)
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/payresolve}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 5
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: ${AI_MODEL:gemini-2.0-flash}
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
@@ -36,17 +35,27 @@ management:
     health:
       probes:
         enabled: true
+springdoc:
+  api-docs:
+    path: /api/v3/api-docs
+  swagger-ui:
+    path: /api/swagger-ui.html
 payresolve:
   public-url: ${APP_PUBLIC_URL:http://localhost:8080}
   demo-mode: ${DEMO_MODE:true}
   session-timeout: ${SESSION_TIMEOUT:30m}
   cors:
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+  supabase:
+    url: ${SUPABASE_URL:}
+    anon-key: ${SUPABASE_ANON_KEY:}
   paypal:
     base-url: ${PAYPAL_BASE_URL:https://api-m.sandbox.paypal.com}
     client-id: ${PAYPAL_CLIENT_ID:}
     client-secret: ${PAYPAL_CLIENT_SECRET:}
     webhook-id: ${PAYPAL_WEBHOOK_ID:}
+  ai:
+    provider: ${AI_PROVIDER:gemini}
   auth:
     operator-username: ${OPERATOR_USERNAME:operator}
     operator-password: ${OPERATOR_PASSWORD:}

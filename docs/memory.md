@@ -20,7 +20,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 
 ## Stack (locked unless noted in Decisions)
 
-- Backend: Java 21, Spring Boot 4.1.1 (Spring Framework 7, Jackson 3), Spring AI 2.0.x, Spring Security 7, PostgreSQL, Flyway, Maven
+- Backend: Java 21, Spring Boot 4.1.2 (Spring Framework 7, Jackson 3), Spring AI 2.0.2, Spring Security 7, Spring Data JDBC, Flyway, PostgreSQL driver, springdoc-openapi 3.2.0, Testcontainers, WireMock 3.13.2, Maven
 - Frontend: React 19, TypeScript strict, Vite, Tailwind CSS v4, TanStack Query, React Router, AG Grid Community, React Flow (`@xyflow/react`)
 - Tests: JUnit 5, Testcontainers, WireMock, Vitest, Testing Library, Playwright (one smoke path)
 - Hosting and tools: Render (API, UI, Postgres), Postman, ngrok or Cloudflare Tunnel for dev, GitHub Actions
@@ -51,6 +51,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Replaced lucide-react with Google Icons | Completely migrated all icons across the entire project to Google Material Symbols (`GoogleIcon`) and uninstalled `lucide-react` |
 | 2026-11-07 | Backend config externalization | Secrets and connection strings exist solely in local .env; application.yml is gitignored and copied from application.yml.example; safe test-only settings in src/test/resources/application.yml |
 | 2026-11-07 | Dockerfile and CI config preparation | The Dockerfile must copy application.yml.example to application.yml before building; tests use src/test/resources/application.yml |
+| 2026-11-07 | Backend foundation on Spring Boot 4.1 | Upgraded to Spring Boot 4.1.2, Java 21; added Spring Data JDBC, Flyway, PostgreSQL driver, springdoc-openapi 3.2.0, Spring AI Google GenAI (Gemini) chat starter 2.0.2, Testcontainers, WireMock; created all 9 packages from architecture.md; implemented Money record, injected Clock bean, global ProblemDetail handler; all APIs mapped under /api; multi-stage Dockerfile with 512MB RAM budget; render.yaml updated for Docker web service API and static UI with free plan fallback |
 
 ## Backend cleanup findings
 
@@ -70,7 +71,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Area | Status | Notes |
 |---|---|---|
 | Docs (prd, architecture, phases, rules, memory) | DONE | Aligned with 7 Nov decisions |
-| Repo, CI, scaffolds | DONE | Backend cleaned, executable bit set, externalized config, CI updated |
+| Repo, CI, scaffolds | DONE | Spring Boot 4.1.2 foundation, Dockerfile, render.yaml, packages & common domain types in place |
 | Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
 | Database & Keepalive Action | DOING | Supabase free Postgres (Session pooler) + GitHub Action keepalive |
 | Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
@@ -109,6 +110,9 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - Sandbox is not identical to live; do not claim production behavior.
 - Disputes API buyer-side testing may need extra scopes granted by PayPal.
 - Spring Boot 4 uses Jackson 3; Jackson 2 imports will not match the default mapper.
+- WebMvcConfigurer method in Spring Framework 7 is configurePathMatch (not configurePathMatching).
+- Spring Boot 4 MockMvc autoconfiguration is in org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc (from spring-boot-starter-webmvc-test).
+- Spring AI 2.0.2 Google GenAI uses properties spring.ai.google.genai.api-key and spring.ai.google.genai.chat.options.model.
 - Confirm in the docs whether webhook-simulator events pass signature verification before relying on them.
 
 ## Glossary
