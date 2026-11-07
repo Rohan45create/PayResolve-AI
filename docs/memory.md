@@ -49,6 +49,19 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Frontend design verification & matching | Verified all 20 design PNG pairs against frontend routes. Redesigned landing, updated auth layout, matched all stat cards, evidence graph, audit log, benchmark, event inbox, demo shop, and UI states. Created /500 and /redirecting. Added dark mode toggle across app and 150ms / 0.97 scale transitions |
 | 2026-11-07 | Landing page & Google Icons integration | Enhanced Landing page typography (Plus Jakarta Sans), exact design color gradients, layout containers, Case PR-0142 graph mockup, floating cards, and integrated Google Material Symbols |
 | 2026-11-07 | Replaced lucide-react with Google Icons | Completely migrated all icons across the entire project to Google Material Symbols (`GoogleIcon`) and uninstalled `lucide-react` |
+| 2026-11-07 | Backend config externalization | Secrets and connection strings exist solely in local .env; application.yml is gitignored and copied from application.yml.example; safe test-only settings in src/test/resources/application.yml |
+| 2026-11-07 | Dockerfile and CI config preparation | The Dockerfile must copy application.yml.example to application.yml before building; tests use src/test/resources/application.yml |
+
+## Backend cleanup findings
+
+- **backend/mvnw permissions:** File was committed without the executable bit (100644). Fixed with git update-index --chmod=+x backend/mvnw (100755).
+- **Maven wrapper version:** maven-wrapper.properties points to Maven 3.10.0. Verified that https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.10.0/apache-maven-3.10.0-bin.zip returns HTTP 200 and ./mvnw -v successfully resolves to Apache Maven 3.10.0 on Java 24; also confirmed Maven 3.9.9 is available on Central.
+- **Root .gitignore:** Erroneously ignored .gitkeep (line 38), which blocked tracking empty directory markers. Removed .gitkeep from .gitignore.
+- **Backend configuration & secrets:** pplication.yml was committed to git with active PostgreSQL configuration requiring live secrets (${DATABASE_URL}, etc.) and no pplication.yml.example existed. Removed pplication.yml from git, added it to .gitignore with an exclusion for pplication.yml.example and src/test/resources/application.yml.
+- **.env.example:** Outdated configuration referencing OpenAI (gpt-4o-mini) and local PostgreSQL. Rewritten with Supabase Session pooler placeholders, Google Gemini (gemini-2.0-flash), complete server/security/auth keys, and 'no quotes around values' comment.
+- **Unused IDE artifacts:** ackend/bin/ contained a redundant Eclipse/m2e project copy; removed completely.
+- **Placeholder markers:** 21 .gitkeep files under ackend/src/main/ and ackend/src/test/ removed.
+- **CI Workflow (.github/workflows/ci.yml):** Lacked a step to copy pplication.yml.example to pplication.yml before running Maven verification. Added preparation step.
 
 ## Current status
 
@@ -57,7 +70,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Area | Status | Notes |
 |---|---|---|
 | Docs (prd, architecture, phases, rules, memory) | DONE | Aligned with 7 Nov decisions |
-| Repo, CI, scaffolds | DONE | Backend (Boot 3.4.2 -> 4.1.x next) & frontend scaffolds verified |
+| Repo, CI, scaffolds | DONE | Backend cleaned, executable bit set, externalized config, CI updated |
 | Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
 | Database & Keepalive Action | DOING | Supabase free Postgres (Session pooler) + GitHub Action keepalive |
 | Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
