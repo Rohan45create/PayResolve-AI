@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { PayResolveMark } from '../components/PayResolveLogo';
 import { GoogleIcon } from '../components/GoogleIcon';
+import { toast } from '../lib/toast';
 
 export default function UIStatesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,7 +43,7 @@ export default function UIStatesPage() {
           </div>
 
           <button
-            onClick={() => alert('Sample states active.')}
+            onClick={() => toast.info('Sample states active.')}
             className="px-4 py-1.5 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
           >
             Sample data

@@ -40,9 +40,9 @@ management:
 
 springdoc:
   api-docs:
-    path: /api/v3/api-docs
+    path: /v3/api-docs
   swagger-ui:
-    path: /api/swagger-ui.html
+    path: /swagger-ui.html
 
 payresolve:
   public-url: http://localhost:8080

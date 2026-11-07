@@ -1,24 +1,31 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
-import { createPasswordResetToken } from '../lib/authStore';
+import { requestPasswordReset } from '../lib/authStore';
+import { toast } from '../lib/toast';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('operator@payresolve.dev');
   const [isSending, setIsSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
 
+    setErrorMsg('');
     setIsSending(true);
-    createPasswordResetToken(email.trim());
-
-    setTimeout(() => {
-      setIsSending(false);
+    try {
+      const res = await requestPasswordReset(email.trim());
+      toast.info('Reset link generated. In demo mode, link is available on screen.');
+      navigate(`/check-email?email=${encodeURIComponent(email.trim())}&token=${encodeURIComponent(res.resetToken)}`);
+    } catch {
+      // Even if failed or unknown email, navigate to check-email per security best practice
       navigate(`/check-email?email=${encodeURIComponent(email.trim())}`);
-    }, 600);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -32,6 +39,12 @@ export default function ForgotPasswordPage() {
             Enter your email and we will send a reset link. It expires in 30 minutes.
           </p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-400 text-xs font-medium">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">

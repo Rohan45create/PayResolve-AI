@@ -48,9 +48,9 @@ management:
         enabled: true
 springdoc:
   api-docs:
-    path: /api/v3/api-docs
+    path: /v3/api-docs
   swagger-ui:
-    path: /api/swagger-ui.html
+    path: /swagger-ui.html
 payresolve:
   public-url: ${APP_PUBLIC_URL:http://localhost:8080}
   demo-mode: ${DEMO_MODE:true}

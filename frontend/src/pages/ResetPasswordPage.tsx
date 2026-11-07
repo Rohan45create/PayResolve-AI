@@ -1,30 +1,31 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
-import { updatePasswordByEmail } from '../lib/authStore';
+import { performPasswordReset } from '../lib/authStore';
+import { toast } from '../lib/toast';
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('•••••••');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [touched, setTouched] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const targetEmail = searchParams.get('email') || 'operator@payresolve.dev';
+  const token = searchParams.get('token') || 'demo_token';
 
   const realPassword = newPassword === '•••••••' ? 'shortpw' : newPassword;
-  const isLongEnough = realPassword.length >= 12;
+  const isLongEnough = realPassword.length >= 8;
   const isTooShort = realPassword.length > 0 && !isLongEnough;
-  const isCommon = realPassword.toLowerCase() === 'password1234' || realPassword.toLowerCase() === '123456789012';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
     setErrorMsg('');
 
     if (!isLongEnough) {
-      setErrorMsg('Password must be at least 12 characters.');
+      setErrorMsg('Password must be at least 8 characters.');
       return;
     }
 
@@ -33,9 +34,20 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    updatePasswordByEmail(targetEmail, realPassword);
-    updatePasswordByEmail('operator', realPassword);
-    navigate('/password-updated');
+    setLoading(true);
+    try {
+      const res = await performPasswordReset(token, realPassword);
+      if (res.success) {
+        toast.success('Password updated successfully.');
+        navigate('/password-updated');
+      } else {
+        setErrorMsg(res.message || 'Failed to reset password. The link may have expired.');
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Invalid or expired token.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,7 +58,7 @@ export default function ResetPasswordPage() {
             Choose a new password
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-            Use at least 12 characters.
+            Use at least 8 characters.
           </p>
         </div>
 
@@ -98,21 +110,12 @@ export default function ResetPasswordPage() {
             />
           </div>
 
-          {/* Validation indicators */}
-          <div className="space-y-1 pt-1 text-xs">
-            <div className={`font-medium ${isLongEnough ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
-              {isLongEnough ? 'Done: 12 or more characters' : 'Not yet: 12 or more characters'}
-            </div>
-            <div className={`font-medium ${!isCommon && realPassword.length > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
-              Done: not a common password
-            </div>
-          </div>
-
           <button
             type="submit"
-            className="w-full py-2.5 px-4 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-sm shadow-sm cursor-pointer transition-all mt-2"
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-sm shadow-sm cursor-pointer transition-all disabled:opacity-70 mt-2"
           >
-            Update password
+            {loading ? 'Updating password...' : 'Update password'}
           </button>
         </form>
       </div>

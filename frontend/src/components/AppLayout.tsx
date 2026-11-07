@@ -31,8 +31,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     return location.pathname === path;
   };
 
-  const handleSignOut = () => {
-    logoutUser();
+  const handleSignOut = async () => {
+    await logoutUser();
     navigate('/signed-out');
   };
 

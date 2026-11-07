@@ -1,63 +1,158 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '../components/AppLayout';
+import { api, type ProductRecord, type DemoFaultSwitchesRecord } from '../lib/api';
+import { toast } from '../lib/toast';
+import { CardSkeleton } from '../components/DataStates';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-}
-
-const products: Product[] = [
-  { id: 'mug', name: 'Ceramic mug', price: 24.00 },
-  { id: 'tote', name: 'Canvas tote', price: 38.50 },
-  { id: 'notebook', name: 'Notebook set', price: 22.00 },
+const DEFAULT_PRODUCTS: ProductRecord[] = [
+  { id: 'mug', name: 'Ceramic mug', priceMinor: 2400, currency: 'USD', price: 24.0, description: 'Handcrafted ceramic mug (12 oz)' },
+  { id: 'tote', name: 'Canvas tote', priceMinor: 3850, currency: 'USD', price: 38.5, description: 'Heavyweight organic cotton canvas tote' },
+  { id: 'notebook', name: 'Notebook set', priceMinor: 2200, currency: 'USD', price: 22.0, description: 'Pack of 3 dot-grid softcover pocket notebooks' },
 ];
 
 export default function DemoShopPage() {
+  const queryClient = useQueryClient();
+
   const [cart, setCart] = useState<{ [id: string]: number }>({
     mug: 1,
     tote: 1,
   });
 
-  // Fault switches
-  const [failWebhook, setFailWebhook] = useState(true);
-  const [dropWebhook, setDropWebhook] = useState(false);
-  const [alterTotal, setAlterTotal] = useState(false);
-  const [duplicateDelivery, setDuplicateDelivery] = useState(false);
+  // 1. Fetch Products
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['shop-products'],
+    queryFn: api.shop.getProducts,
+  });
 
-  // Recent orders
-  const [orders, setOrders] = useState([
-    { id: '#10482', status: 'Pending' },
-    { id: '#10479', status: 'Paid' },
-    { id: '#10477', status: 'Paid' },
-  ]);
+  const products = (productsData && productsData.length > 0) ? productsData : DEFAULT_PRODUCTS;
+
+  // 2. Fetch Recent Orders
+  const { data: ordersData } = useQuery({
+    queryKey: ['shop-orders'],
+    queryFn: api.shop.getOrders,
+  });
+
+  const recentOrders = useMemo(() => {
+    if (ordersData && ordersData.length > 0) {
+      return ordersData.slice(0, 5).map(o => ({
+        id: `#${o.id.replace('ORD-', '')}`,
+        status: o.status === 'PAID' ? 'Paid' : o.status === 'REFUNDED' ? 'Refunded' : 'Pending',
+      }));
+    }
+    return [
+      { id: '#10482', status: 'Pending' },
+      { id: '#10479', status: 'Paid' },
+      { id: '#10477', status: 'Paid' },
+    ];
+  }, [ordersData]);
+
+  // 3. Fetch Fault Switches
+  const { data: faultSwitchesData } = useQuery({
+    queryKey: ['demo-faults'],
+    queryFn: api.faults.get,
+  });
+
+  const defaultFaults: DemoFaultSwitchesRecord = {
+    failWebhookHandler: true,
+    dropWebhook: false,
+    alterOrderTotal: false,
+    duplicateDelivery: false,
+    demoMode: true,
+  };
+
+  const faultSwitches: DemoFaultSwitchesRecord = faultSwitchesData ?? defaultFaults;
+
+  // Mutation: Update fault switch
+  const switchMutation = useMutation({
+    mutationFn: (updated: DemoFaultSwitchesRecord) => api.faults.update(updated),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['demo-faults'], data);
+      toast.info('Fault switch updated in database.');
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['demo-faults'] });
+      toast.error('Failed to update fault switch.');
+    },
+  });
+
+  // Mutation: Reset fault switches
+  const resetFaultsMutation = useMutation({
+    mutationFn: api.faults.reset,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['demo-faults'], data);
+      toast.success('All demo fault switches reset to false.');
+    },
+    onError: () => {
+      toast.error('Failed to reset fault switches.');
+    },
+  });
+
+  // Mutation: PayPal Checkout
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      const items = Object.entries(cart)
+        .filter(([, qty]) => qty > 0)
+        .map(([pid, qty]) => {
+          const p = products.find(x => x.id === pid);
+          return {
+            productId: pid,
+            quantity: qty,
+            priceMinor: p ? p.priceMinor : 2400,
+          };
+        });
+
+      // 1. Create shop order
+      const order = await api.shop.createOrder({
+        customerLabel: 'Demo Customer (customer@demo.local)',
+        items,
+        currency: 'USD',
+      });
+
+      const orderId = order.id || 'ORD-10482';
+
+      // 2. Initiate PayPal checkout
+      const checkout = await api.shop.checkout(orderId);
+
+      // 3. Capture order
+      const captured = await api.shop.capture(orderId);
+      return { order, checkout, captured };
+    },
+    onSuccess: ({ order }) => {
+      queryClient.invalidateQueries({ queryKey: ['shop-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+
+      const notice = faultSwitches.failWebhookHandler
+        ? 'Fault simulated: webhook failed handler. Order remains Pending in merchant store.'
+        : 'Payment captured and marked Paid.';
+
+      const orderNum = (order.id || 'ORD-10482').replace('ORD-', '');
+      toast.success(`PayPal Sandbox payment submitted for order #${orderNum}. ${notice}`);
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Checkout failed.');
+    },
+  });
 
   const addToCart = (id: string) => {
     setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   };
 
-  const handlePayPalCheckout = () => {
-    const newOrderId = `#${Math.floor(10483 + Math.random() * 100)}`;
-    const newStatus = failWebhook ? 'Pending' : 'Paid';
-    setOrders((prev) => [{ id: newOrderId, status: newStatus }, ...prev]);
-    const totalAmount = Object.entries(cart).reduce((sum, [pid, qty]) => {
-      const p = products.find((x) => x.id === pid);
-      return sum + (p ? p.price * qty : 0);
-    }, 0);
-    alert(
-      `PayPal Sandbox payment submitted for $${totalAmount > 0 ? totalAmount.toFixed(2) : '62.50'}.\n${
-        failWebhook
-          ? 'Fault simulated: webhook failed handler. Order remains Pending in merchant store.'
-          : 'Payment captured and marked Paid.'
-      }`,
-    );
-  };
+  const totalAmountMinor = Object.entries(cart).reduce((sum, [pid, qty]) => {
+    const p = products.find((x) => x.id === pid);
+    return sum + (p ? (p.priceMinor || 2400) * qty : 0);
+  }, 0);
 
-  const handleResetState = () => {
-    setFailWebhook(true);
-    setDropWebhook(false);
-    setAlterTotal(false);
-    setDuplicateDelivery(false);
+  const totalAmountDollars = (totalAmountMinor / 100).toFixed(2);
+
+  const toggleSwitch = (key: keyof Omit<DemoFaultSwitchesRecord, 'demoMode'>) => {
+    const next = {
+      ...faultSwitches,
+      [key]: !faultSwitches[key],
+    };
+    queryClient.setQueryData(['demo-faults'], next);
+    switchMutation.mutate(next);
   };
 
   return (
@@ -88,58 +183,73 @@ export default function DemoShopPage() {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Products grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {products.map((prod) => (
-                <div
-                  key={prod.id}
-                  className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 flex items-center justify-between shadow-2xs"
-                >
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{prod.name}</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">${prod.price.toFixed(2)}</p>
-                  </div>
-                  <button
-                    onClick={() => addToCart(prod.id)}
-                    className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
+            {productsLoading ? (
+              <CardSkeleton count={2} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {products.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 flex items-center justify-between shadow-2xs"
                   >
-                    Add
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{prod.name}</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                        ${(prod.priceMinor / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addToCart(prod.id)}
+                      className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Checkout Card */}
-            <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-4 shadow-2xs">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Checkout</h2>
-
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-sm">
-                <div className="py-2.5 flex items-center justify-between text-slate-700 dark:text-slate-300">
-                  <span>Ceramic mug x 1</span>
-                  <span>$24.00</span>
+            {/* Checkout summary card */}
+            <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-6 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Checkout summary</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Order lines mapped to PayPal unit items.
+                  </p>
                 </div>
-                <div className="py-2.5 flex items-center justify-between text-slate-700 dark:text-slate-300">
-                  <span>Canvas tote x 1</span>
-                  <span>$38.50</span>
-                </div>
-                <div className="py-3 flex items-center justify-between font-semibold text-slate-900 dark:text-white">
-                  <span>Total</span>
-                  <span>$62.50</span>
+                <div className="text-right">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Total</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-white font-mono">
+                    ${totalAmountDollars}
+                  </span>
                 </div>
               </div>
 
-              <div className="pt-2 space-y-2">
-                <button
-                  onClick={handlePayPalCheckout}
-                  className="px-5 py-2.5 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all"
-                >
-                  Pay with PayPal Sandbox
-                </button>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Approve with the sandbox buyer account. Capture happens on the server.
-                </p>
+              {/* Items in cart breakdown */}
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                {Object.entries(cart).map(([pid, qty]) => {
+                  const p = products.find((x) => x.id === pid);
+                  if (!p || qty === 0) return null;
+                  return (
+                    <div key={pid} className="py-2.5 flex items-center justify-between text-slate-600 dark:text-slate-300">
+                      <span>{p.name} &times; {qty}</span>
+                      <span className="font-mono">${((p.priceMinor * qty) / 100).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
 
+              <button
+                type="button"
+                onClick={() => checkoutMutation.mutate()}
+                disabled={checkoutMutation.isPending || totalAmountMinor === 0}
+                className="w-full py-3 px-4 rounded-xl bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-sm shadow-sm cursor-pointer transition-all disabled:opacity-60 flex items-center justify-center space-x-2"
+              >
+                <span>{checkoutMutation.isPending ? 'Processing payment...' : 'Pay with PayPal Sandbox'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Right Column: Fault Switches & Recent Orders */}
@@ -148,76 +258,65 @@ export default function DemoShopPage() {
             {/* Fault Switches Card */}
             <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-5 shadow-2xs">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Fault switches</h2>
-                <span className="px-2.5 py-0.5 rounded-full border border-amber-600/50 text-amber-600 dark:text-amber-400 text-xs font-normal">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Fault switches</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Causes real discrepancies on the next event.
+                  </p>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-[11px] font-normal">
                   Demo only
                 </span>
               </div>
 
+              {/* Toggles */}
               <div className="space-y-4 text-xs sm:text-sm">
-                {/* Switch 1 */}
-                <label className="flex items-start space-x-3 cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-800 dark:text-slate-200">Fail webhook handler</span>
                   <input
                     type="checkbox"
-                    checked={failWebhook}
-                    onChange={(e) => setFailWebhook(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    checked={faultSwitches.failWebhookHandler}
+                    onChange={() => toggleSwitch('failWebhookHandler')}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white block">Fail webhook handler</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Capture succeeds, order stays pending</span>
-                  </div>
-                </label>
-
-                {/* Switch 2 */}
-                <label className="flex items-start space-x-3 cursor-pointer">
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-800 dark:text-slate-200">Drop webhook</span>
                   <input
                     type="checkbox"
-                    checked={dropWebhook}
-                    onChange={(e) => setDropWebhook(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    checked={faultSwitches.dropWebhook}
+                    onChange={() => toggleSwitch('dropWebhook')}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white block">Drop webhook</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">PayPal event never reaches the app</span>
-                  </div>
-                </label>
-
-                {/* Switch 3 */}
-                <label className="flex items-start space-x-3 cursor-pointer">
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-800 dark:text-slate-200">Alter order total</span>
                   <input
                     type="checkbox"
-                    checked={alterTotal}
-                    onChange={(e) => setAlterTotal(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    checked={faultSwitches.alterOrderTotal}
+                    onChange={() => toggleSwitch('alterOrderTotal')}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white block">Alter order total</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Order total differs from the capture</span>
-                  </div>
-                </label>
-
-                {/* Switch 4 */}
-                <label className="flex items-start space-x-3 cursor-pointer">
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-800 dark:text-slate-200">Duplicate delivery</span>
                   <input
                     type="checkbox"
-                    checked={duplicateDelivery}
-                    onChange={(e) => setDuplicateDelivery(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    checked={faultSwitches.duplicateDelivery}
+                    onChange={() => toggleSwitch('duplicateDelivery')}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-white block">Duplicate delivery</span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Same event delivered twice</span>
-                  </div>
-                </label>
+                </div>
               </div>
 
               <div className="pt-2">
                 <button
-                  onClick={handleResetState}
-                  className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
+                  type="button"
+                  onClick={() => resetFaultsMutation.mutate()}
+                  disabled={resetFaultsMutation.isPending}
+                  className="w-full py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs transition-colors"
                 >
-                  Reset demo state
+                  {resetFaultsMutation.isPending ? 'Resetting...' : 'Reset all to false'}
                 </button>
               </div>
             </div>
@@ -226,15 +325,17 @@ export default function DemoShopPage() {
             <div className="bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-4 shadow-2xs">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Recent orders</h2>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs sm:text-sm">
-                {orders.map((ord) => (
-                  <div key={ord.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                    <span className="font-mono text-slate-700 dark:text-slate-300">{ord.id}</span>
+              <div className="space-y-3">
+                {recentOrders.map((ord) => (
+                  <div key={ord.id} className="flex items-center justify-between text-xs sm:text-sm">
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{ord.id}</span>
                     <span
-                      className={`px-3 py-0.5 rounded-full border text-xs font-normal ${
-                        ord.status === 'Pending'
-                          ? 'border-amber-600/60 text-amber-600 dark:text-amber-400'
-                          : 'border-emerald-600/60 text-emerald-600 dark:text-emerald-400'
+                      className={`px-3 py-0.5 rounded-full border text-xs ${
+                        ord.status === 'Paid'
+                          ? 'border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                          : ord.status === 'Refunded'
+                          ? 'border-purple-400 dark:border-purple-600 text-purple-600 dark:text-purple-400'
+                          : 'border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400'
                       }`}
                     >
                       {ord.status}
@@ -245,7 +346,6 @@ export default function DemoShopPage() {
             </div>
 
           </div>
-
         </div>
       </div>
     </AppLayout>

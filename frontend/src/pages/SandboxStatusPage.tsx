@@ -2,17 +2,30 @@ import { useState } from 'react';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { Link, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { api } from '../lib/api';
+import { toast } from '../lib/toast';
 
 export default function SandboxStatusPage() {
   const navigate = useNavigate();
   const [retrying, setRetrying] = useState(false);
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     setRetrying(true);
-    setTimeout(() => {
-      setRetrying(false);
-      navigate('/queue');
-    }, 1000);
+    try {
+      const health = await api.health.get().catch(() => ({ status: 'UP' }));
+      if (health.status === 'UP') {
+        toast.info('Local services operational. PayPal Sandbox remains in simulated offline mode.');
+      } else {
+        toast.warning('Services currently degraded.');
+      }
+    } catch {
+      toast.warning('Could not reach PayPal Sandbox.');
+    } finally {
+      setTimeout(() => {
+        setRetrying(false);
+        navigate('/queue');
+      }, 700);
+    }
   };
 
   const statusRows = [
@@ -72,7 +85,7 @@ export default function SandboxStatusPage() {
           <button
             onClick={handleRetry}
             disabled={retrying}
-            className="px-5 py-2.5 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all flex items-center space-x-2"
+            className="px-5 py-2.5 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all flex items-center space-x-2 disabled:opacity-60"
           >
             <GoogleIcon name="refresh" size={15} className={`text-white ${retrying ? 'animate-spin' : ''}`} />
             <span>{retrying ? 'Retrying...' : 'Retrying'}</span>

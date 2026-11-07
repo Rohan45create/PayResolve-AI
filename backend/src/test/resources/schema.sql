@@ -149,11 +149,11 @@ CREATE TABLE IF NOT EXISTS benchmark_runs (
     id VARCHAR(100) PRIMARY KEY,
     run_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     total_cases INT NOT NULL,
-    resolved_cases INT NOT NULL,
+    passed_cases INT NOT NULL,
     precision_pct DOUBLE PRECISION NOT NULL,
     recall_pct DOUBLE PRECISION NOT NULL,
-    avg_latency_ms BIGINT NOT NULL,
-    summary_json TEXT
+    avg_duration_ms BIGINT NOT NULL,
+    results_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS keepalive (

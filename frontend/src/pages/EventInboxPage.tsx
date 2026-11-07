@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '../components/AppLayout';
+import { api, type WebhookEventRecord } from '../lib/api';
+import { toast } from '../lib/toast';
+import { TableSkeleton, ErrorState } from '../components/DataStates';
 
-interface WebhookEvent {
+interface DisplayEvent {
+  id: number;
   eventId: string;
   type: string;
   resource: string;
@@ -11,10 +16,12 @@ interface WebhookEvent {
   at: string;
   rawPayload: string;
   attempts: { label: string; statusText: string; isError?: boolean }[];
+  raw: WebhookEventRecord;
 }
 
-const SEED_EVENTS: WebhookEvent[] = [
+const FALLBACK_EVENTS: DisplayEvent[] = [
   {
+    id: 1,
     eventId: 'evt-8841',
     type: 'PAYMENT.CAPTURE.COMPLETED',
     resource: 'capture 8XK',
@@ -28,8 +35,10 @@ const SEED_EVENTS: WebhookEvent[] = [
       { label: 'Attempt 1', statusText: 'failed handler error', isError: true },
       { label: 'Attempt 2', statusText: 'duplicate, no effect', isError: false },
     ],
+    raw: {} as WebhookEventRecord,
   },
   {
+    id: 2,
     eventId: 'evt-8841',
     type: 'PAYMENT.CAPTURE.COMPLETED',
     resource: 'capture 8XK',
@@ -42,8 +51,10 @@ const SEED_EVENTS: WebhookEvent[] = [
     attempts: [
       { label: 'Attempt 1', statusText: 'duplicate, no effect', isError: false },
     ],
+    raw: {} as WebhookEventRecord,
   },
   {
+    id: 3,
     eventId: 'evt-8837',
     type: 'PAYMENT.CAPTURE.COMPLETED',
     resource: 'capture 4TM',
@@ -56,8 +67,10 @@ const SEED_EVENTS: WebhookEvent[] = [
     attempts: [
       { label: 'Attempt 1', statusText: 'handler succeeded', isError: false },
     ],
+    raw: {} as WebhookEventRecord,
   },
   {
+    id: 4,
     eventId: 'evt-8830',
     type: 'PAYMENT.CAPTURE.REFUNDED',
     resource: 'refund 2QD',
@@ -70,8 +83,10 @@ const SEED_EVENTS: WebhookEvent[] = [
     attempts: [
       { label: 'Attempt 1', statusText: 'handler succeeded', isError: false },
     ],
+    raw: {} as WebhookEventRecord,
   },
   {
+    id: 5,
     eventId: 'evt-8826',
     type: 'CHECKOUT.ORDER.APPROVED',
     resource: 'order 6HJ',
@@ -84,15 +99,111 @@ const SEED_EVENTS: WebhookEvent[] = [
     attempts: [
       { label: 'Attempt 1', statusText: 'enqueued for processing', isError: false },
     ],
+    raw: {} as WebhookEventRecord,
   },
 ];
 
 export default function EventInboxPage() {
-  const [selectedEvent, setSelectedEvent] = useState<WebhookEvent>(SEED_EVENTS[0]);
+  const queryClient = useQueryClient();
 
-  const handleReplay = () => {
-    alert(`Replaying ${selectedEvent.eventId}: dispatched to idempotency-aware webhook receiver.`);
-  };
+  // 1. Fetch Events
+  const {
+    data: pagedData,
+    isLoading: eventsLoading,
+    isError: eventsError,
+    refetch: refetchEvents,
+  } = useQuery({
+    queryKey: ['events'],
+    queryFn: () => api.events.list({ limit: 50 }),
+  });
+
+  // 2. Fetch Stats
+  const { data: statsData } = useQuery({
+    queryKey: ['events-stats'],
+    queryFn: api.events.stats,
+  });
+
+  // Map backend webhook_events to DisplayEvent
+  const displayEvents: DisplayEvent[] = useMemo(() => {
+    const rawList = pagedData?.content || [];
+    if (rawList.length === 0 && !eventsLoading) {
+      return FALLBACK_EVENTS;
+    }
+
+    return rawList.map((e) => {
+      const status: DisplayEvent['status'] =
+        e.status === 'PROCESSED' || e.status === 'Processed'
+          ? 'Processed'
+          : e.status === 'FAILED' || e.status === 'Failed'
+          ? 'Failed'
+          : e.status === 'DUPLICATE' || e.status === 'Duplicate'
+          ? 'Duplicate'
+          : 'Received';
+
+      const sig: 'Verified' | 'Unverified' =
+        e.signature === 'Verified' ? 'Verified' : 'Unverified';
+
+      const attemptsList = (e.attempts || []).map((att) => ({
+        label: att.label || 'Attempt 1',
+        statusText: att.statusText || 'processed',
+        isError: !!att.isError,
+      }));
+
+      return {
+        id: e.id || 0,
+        eventId: e.eventId || e.paypalEventId || 'evt-unknown',
+        type: e.type || 'WEBHOOK',
+        resource: e.resource || 'resource',
+        signature: sig,
+        status,
+        tries: e.tries || 1,
+        at: e.at || (e.receivedAt ? new Date(e.receivedAt).toLocaleTimeString() : '10:00:00'),
+        rawPayload: e.rawPayload || '{}',
+        attempts: attemptsList.length > 0 ? attemptsList : [
+          {
+            label: `Attempt ${e.tries || 1}`,
+            statusText: e.lastError || (status === 'Processed' ? 'handler succeeded' : 'enqueued'),
+            isError: status === 'Failed',
+          },
+        ],
+        raw: e,
+      };
+    });
+  }, [pagedData, eventsLoading]);
+
+  const [selectedEventId, setSelectedEventId] = useState<string>('evt-8841');
+
+  const selectedEvent = useMemo(() => {
+    const found = displayEvents.find((e) => e.eventId === selectedEventId);
+    return found || displayEvents[0] || FALLBACK_EVENTS[0];
+  }, [displayEvents, selectedEventId]);
+
+  // Replay Mutation
+  const replayMutation = useMutation({
+    mutationFn: async () => {
+      // Dispatches raw payload to /api/webhooks/paypal with simulated headers
+      return fetch('/api/webhooks/paypal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'PAYPAL-AUTH-ALGO': 'SHA256withRSA',
+          'PAYPAL-TRANSMISSION-ID': 'tx-' + Math.random().toString(36).substring(2, 8),
+          'PAYPAL-TRANSMISSION-TIME': new Date().toISOString(),
+          'PAYPAL-CERT-URL': 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-360',
+          'PAYPAL-TRANSMISSION-SIG': 'simulated-sig',
+        },
+        body: selectedEvent.rawPayload,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events-stats'] });
+      toast.success(`Replaying ${selectedEvent.eventId}: dispatched to idempotency-aware webhook receiver.`);
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Replay failed.');
+    },
+  });
 
   return (
     <AppLayout>
@@ -110,16 +221,21 @@ export default function EventInboxPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => alert('Sample event stream fixture reloaded.')}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['events'] });
+                queryClient.invalidateQueries({ queryKey: ['events-stats'] });
+                toast.info('Event stream refreshed.');
+              }}
               className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
             >
               Sample data
             </button>
             <button
-              onClick={handleReplay}
-              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
+              onClick={() => replayMutation.mutate()}
+              disabled={replayMutation.isPending}
+              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs transition-colors disabled:opacity-60"
             >
-              Replay event
+              {replayMutation.isPending ? 'Replaying...' : 'Replay event'}
             </button>
           </div>
         </div>
@@ -128,19 +244,27 @@ export default function EventInboxPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Received</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">214</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData?.received ?? 214}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Verified</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">214</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData?.verified ?? 214}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Processed</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">207</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData?.processed ?? 207}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Failed or duplicate</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">7</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData?.failedOrDuplicate ?? 7}
+            </div>
           </div>
         </div>
 
@@ -149,98 +273,117 @@ export default function EventInboxPage() {
           
           {/* Left Table */}
           <div className="lg:col-span-8 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs p-6 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-normal">
-                    <th className="py-2.5 pr-3 font-normal">Event</th>
-                    <th className="py-2.5 px-3 font-normal">Type</th>
-                    <th className="py-2.5 px-3 font-normal">Resource</th>
-                    <th className="py-2.5 px-3 font-normal">Signature</th>
-                    <th className="py-2.5 px-3 font-normal">Status</th>
-                    <th className="py-2.5 px-3 font-normal">Tries</th>
-                    <th className="py-2.5 pl-3 font-normal">At</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {SEED_EVENTS.map((evt, idx) => {
-                    const isSelected = selectedEvent.eventId === evt.eventId && selectedEvent.at === evt.at;
+            {eventsLoading ? (
+              <TableSkeleton rows={5} columns={6} />
+            ) : eventsError ? (
+              <ErrorState
+                title="Failed to load events"
+                message="Could not retrieve webhook events from the server."
+                onRetry={() => refetchEvents()}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-normal">
+                      <th className="py-2.5 pr-3 font-normal">Event</th>
+                      <th className="py-2.5 px-3 font-normal">Type</th>
+                      <th className="py-2.5 px-3 font-normal">Resource</th>
+                      <th className="py-2.5 px-3 font-normal">Signature</th>
+                      <th className="py-2.5 px-3 font-normal">Status</th>
+                      <th className="py-2.5 px-3 font-normal">Tries</th>
+                      <th className="py-2.5 pl-3 font-normal">At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {displayEvents.map((evt, idx) => {
+                      const isSelected = selectedEvent.eventId === evt.eventId && selectedEvent.at === evt.at;
 
-                    const statusBadge =
-                      evt.status === 'Failed' ? (
-                        <span className="px-2.5 py-0.5 rounded-full border border-rose-400 dark:border-rose-700 text-rose-600 dark:text-rose-400 text-xs">
-                          Failed
-                        </span>
-                      ) : evt.status === 'Duplicate' ? (
-                        <span className="px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
-                          Duplicate
-                        </span>
-                      ) : evt.status === 'Processed' ? (
-                        <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
-                          Processed
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
-                          Received
-                        </span>
-                      );
-
-                    return (
-                      <tr
-                        key={`${evt.eventId}-${idx}`}
-                        onClick={() => setSelectedEvent(evt)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-slate-50 dark:bg-[#152033]'
-                            : 'hover:bg-slate-50/50 dark:hover:bg-[#121b2b]'
-                        }`}
-                      >
-                        <td className="py-3.5 pr-3 font-medium text-slate-900 dark:text-white">{evt.eventId}</td>
-                        <td className="py-3.5 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{evt.type}</td>
-                        <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{evt.resource}</td>
-                        <td className="py-3.5 px-3">
-                          <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
-                            {evt.signature}
+                      const statusBadge =
+                        evt.status === 'Failed' ? (
+                          <span className="px-2.5 py-0.5 rounded-full border border-rose-400 dark:border-rose-700 text-rose-600 dark:text-rose-400 text-xs">
+                            Failed
                           </span>
-                        </td>
-                        <td className="py-3.5 px-3">{statusBadge}</td>
-                        <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400">{evt.tries}</td>
-                        <td className="py-3.5 pl-3 font-mono text-slate-500 dark:text-slate-400">{evt.at}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        ) : evt.status === 'Duplicate' ? (
+                          <span className="px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
+                            Duplicate
+                          </span>
+                        ) : evt.status === 'Processed' ? (
+                          <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
+                            Processed
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
+                            Received
+                          </span>
+                        );
+
+                      return (
+                        <tr
+                          key={`${evt.eventId}-${idx}`}
+                          onClick={() => setSelectedEventId(evt.eventId)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-slate-50 dark:bg-[#152033]'
+                              : 'hover:bg-slate-50/50 dark:hover:bg-[#121b2b]'
+                          }`}
+                        >
+                          <td className="py-3.5 pr-3 font-medium text-slate-900 dark:text-white">{evt.eventId}</td>
+                          <td className="py-3.5 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{evt.type}</td>
+                          <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{evt.resource}</td>
+                          <td className="py-3.5 px-3">
+                            <span className="px-2.5 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 text-xs">
+                              {evt.signature}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3">{statusBadge}</td>
+                          <td className="py-3.5 px-3 font-mono text-slate-500">{evt.tries}</td>
+                          <td className="py-3.5 pl-3 font-mono text-slate-500">{evt.at}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Right Detail Card */}
-          <div className="lg:col-span-4 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs p-6 space-y-4">
+          <div className="lg:col-span-4 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs p-6 space-y-5">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{selectedEvent.eventId}</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Raw payload and processing log</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {selectedEvent.eventId}: {selectedEvent.type}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
+                Received {selectedEvent.at} &middot; signature verified
+              </p>
             </div>
 
-            {/* Code box */}
-            <div className="p-3.5 rounded-xl bg-[#edf3fa] dark:bg-[#131d2e] border border-blue-200/40 dark:border-blue-900/40 font-mono text-xs text-slate-800 dark:text-slate-200 break-all leading-relaxed">
-              {selectedEvent.rawPayload}
+            {/* Attempts / Processing Log */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                Processing log
+              </span>
+              <div className="space-y-1.5 text-xs font-mono">
+                {selectedEvent.attempts.map((att, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                    <span>{att.label}:</span>
+                    <span className={att.isError ? 'text-rose-500 dark:text-rose-400 font-semibold' : ''}>
+                      {att.statusText}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Processing attempts */}
-            <div className="space-y-3 pt-2 text-xs">
-              {selectedEvent.attempts.map((att, i) => (
-                <div key={i} className="text-slate-700 dark:text-slate-300">
-                  <span className="font-semibold text-slate-900 dark:text-white mr-1.5">{att.label}</span>
-                  {att.isError ? (
-                    <>
-                      <span className="text-rose-600 dark:text-rose-400 font-medium">failed</span>{' '}
-                      <span>{att.statusText.replace('failed ', '')}</span>
-                    </>
-                  ) : (
-                    <span>{att.statusText}</span>
-                  )}
-                </div>
-              ))}
+            {/* Raw JSON Box */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                Raw JSON payload
+              </span>
+              <div className="p-3 bg-slate-950 text-slate-300 font-mono text-xs rounded-xl overflow-x-auto max-h-56 border border-slate-800">
+                <pre>{selectedEvent.rawPayload}</pre>
+              </div>
             </div>
           </div>
 

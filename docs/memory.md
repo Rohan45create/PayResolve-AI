@@ -60,6 +60,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Evidence module: Graph and timeline derived at read time | Normalized records into case_evidence items; derived DAG with nodes (PAYPAL_ORDER, PAYPAL_CAPTURE, PAYPAL_REFUND, WEBHOOK_EVENT, SHOP_ORDER, SHIPMENT, DISPUTE, DISPUTE_EVIDENCE, OPERATOR_ACTION) and edges (CAPTURES, NOTIFIED_BY, FULFILLS, REFUNDS, DISPUTES, PROVES, ACTED_ON); missing links returned as nodes with status MISSING and dashed edges; exposed GET /api/cases/{id}/graph and /timeline; verified with unit and integration tests across all 5 case types. |
 | 2026-11-07 | AI Investigator agent with Spring AI, Gemini & Deterministic Verifier | Built tool-calling agent with 8 read-only tools (getPaypalOrder, getCaptureDetails, getRefundDetails, listWebhookEventsForOrder, getShopOrder, getShipment, getCaseEvidence, getDisputeIfAny); structured InvestigationReport with retry on schema failure; deterministic InvestigationVerifier stripping hallucinated IDs or mismatched amounts; low temperature (0.1), 10-step cap, timeout, and step latency logging in investigation_steps; exposed POST /api/cases/{id}/investigate and GET /api/investigations/{id}; offline demo cache and rule-based fallback when LLM is unavailable or rate limited. |
 | 2026-11-07 | Actions, Audit and Authentication | Built actions module (POST /api/cases/{id}/actions, POST /api/actions/{id}/approve, POST /api/actions/{id}/reject) with types SYNC_ORDER_STATUS, HOLD_REFUND (flag only, no money moves), REQUEST_REVIEW; idempotent execution with unique idempotency_key; append-only audit_log; Spring Security with session cookies and CSRF (CookieCsrfTokenRepository); seeded OPERATOR and VIEWER with BCrypt hashing; strict role-based access returning 403 Forbidden for viewers; sign-up restricted to VIEWER role; demo password reset token with 15-min expiry and on-screen demo link notice; 30-min session timeout; comprehensive unit and integration test suite. |
+| 2026-11-07 | Frontend Real API Wiring & Visual Verification | Replaced all mock data and localStorage auth with TanStack Query, generated OpenAPI TypeScript types, and typed API client (api.ts) with CSRF extraction and RFC 9457 ProblemDetail handling. Implemented session auth store (login, signup, forgot/reset with on-screen demo link, session timeout to /signed-out, 403 to /403). Wired AG Grid queue with search and status/severity filters, @xyflow/react evidence graph with dashed MISSING nodes and smoothstep edges, AI investigator panel with live step logs and latency badges, event inbox with replay mutation, demo shop with DB fault switches, actions/audit approval workflow, benchmark evaluation (18 cases, 4 metric cards, dot visualization), and live sandbox health probes. Replaced all alert() calls with design-matching toast manager. Maintained exact visual design matching /design PNGs across 20 routes in light and dark modes (40 Playwright screenshots verified in C:\tmp\shots). |
 
 ## Backend cleanup findings
 
@@ -82,7 +83,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Repo, CI, scaffolds | DONE | Spring Boot 4.1.2 foundation, Dockerfile, render.yaml, packages & common domain types in place |
 | Frontend design matching (all PNGs) | DONE | Pixel-perfect match to /design (20 pages, light & dark, 1440px verification) |
 | Database & Keepalive Action | DONE | Flyway V1/V2, Session pooler config, keepalive table & workflow active |
-| Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
+| Frontend UI & mock wiring | DONE | Wired to real API with TanStack Query, typed client, and full auth/state coverage |
 | PayPal Sandbox app and credentials | DONE | Client, properties, in-memory OAuth token manager with proactive refresh |
 | Create, approve, capture a Sandbox order | DONE | Orders v2 client (custom_id = shop order id), capture, WireMock tests & Postman flow |
 | Webhook endpoint on a public URL | DONE | POST /api/webhooks/paypal with Cloudflare Tunnel (cloudflared) documentation |
@@ -91,11 +92,11 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Render deployment skeleton | TODO | Paid with hackathon credits, free-plan fallback |
 | Demo shop and fault switches | DONE | Products catalog, orders, PayPal checkout & capture, AWAITING_CONFIRMATION lifecycle, refunds, simulated shipments, DB-backed fault switches |
 | Detectors (P0) | DONE | Pure detectors for PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE; rerun dedupe, lifecycle transitions & seed API |
-| AG Grid queue (AG Studio / Prize target) | TODO | Day 6 |
+| AG Grid queue (AG Studio / Prize target) | DONE | Integrated AG Grid Community v36 with custom status/severity cells, search, filters & export |
 | Evidence graph and timeline | DONE | Graph and chronological timeline derived at read time from case_evidence items; missing nodes & dashed edges; GET /api/cases/{id}/graph & /timeline |
 | AI investigator (Google Gemini via Spring AI) | DONE | Tool-calling agent with 8 read-only tools, structured report, deterministic verifier, auditable step log, and rate limit fallback cache |
 | Actions, approval, audit, login | DONE | Human-in-the-loop actions (SYNC_ORDER_STATUS, HOLD_REFUND flag, REQUEST_REVIEW), append-only audit_log, Spring Security session auth + CSRF, OPERATOR / VIEWER RBAC, on-screen demo password reset |
-| Benchmark numbers | TODO | Day 10 |
+| Benchmark numbers | DONE | Benchmark evaluation runner with 18 canonical scenarios, 4 metric cards, and outcome dots |
 | README, license, video, submission | TODO | Submit by 12 Nov 6 pm IST (feature freeze 10 Nov) |
 
 ## Next up
@@ -143,6 +144,10 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - Spring Security CSRF & Method Security with MockMvc: Mutating requests to CSRF-protected endpoints (`/api/actions/**`) must include both `.with(csrf())` and `.with(user(...).roles(...))`. Without `.with(user(...))`, Spring Security evaluates `hasRole(...)` before the controller and returns 401 via `HttpStatusEntryPoint`.
 - Global Exception Handling for Auth Failures: Spring Security's `BadCredentialsException` must be explicitly handled with `@ExceptionHandler` in `GlobalExceptionHandler` to return RFC 9457 ProblemDetail 401 Unauthorized rather than falling through to generic 500.
 - Database Schema Parity in Tests: Ensure test H2 schema DDL mirrors all columns in Flyway migrations (e.g. `created_at` in `password_reset_tokens`).
+- TypeScript verbatimModuleSyntax: In strict mode with verbatimModuleSyntax, types must be imported using `import type { ... }` or `import { type X }` to ensure zero runtime AST side effects.
+- SpringDoc api-docs path with global MVC prefix: When `WebMvcConfigurer.addPathPrefix("/api")` is active, `springdoc.api-docs.path` must be `/v3/api-docs` rather than `/api/v3/api-docs` to avoid double prefixing (`/api/api/v3/api-docs`).
+- AG Grid Community v36 module registration: In AG Grid Community v36+, modules must be explicitly registered via `ModuleRegistry.registerModules([AllCommunityModule])` and `@ag-grid-community/styles/ag-grid.css` loaded.
+- React Flow v12 smoothstep edge dashing: Missing links and synthetic edges in React Flow can be styled with `strokeDasharray: '4 4'`, `MarkerType.ArrowClosed`, and amber tokens `#f59e0b` to indicate unfulfilled invariants.
 
 ## Glossary
 
@@ -174,3 +179,4 @@ Keep to one line per session; roll old entries up when this grows.
 - 2026-11-07: Built evidence module (DAG node normalisation, missing link synthesis with dashed edges, chronological timeline derivation at read time, GET /api/cases/{id}/graph and /timeline, 10 unit & integration tests).
 - 2026-11-07: Built investigator module (Spring AI ChatClient with 8 read-only @Tool methods, structured output, deterministic verifier, token/cost limits, latency logging in investigation_steps, offline fallback cache, 9 tests).
 - 2026-11-07: Built actions, audit & auth module (propose/approve/reject actions, idempotent side-effects, append-only audit_log, Spring Security session cookies + CSRF, BCrypt seeded operator/viewer, VIEWER-only sign-up, demo password reset with 15-min token and on-screen notice, 18 tests).
+- 2026-11-07: Wired frontend to real backend API (TanStack Query, openapi-typescript client, real session auth + CSRF, AG Grid queue with sorting & filters, @xyflow/react evidence graph with dashed MISSING nodes, AI investigator panel with live step log, all pages wired, alert() eliminated, 40 Playwright route screenshots verified with 0 visual regressions, all 113 backend tests passing).

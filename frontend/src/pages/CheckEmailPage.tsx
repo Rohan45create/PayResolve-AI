@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
-import { createPasswordResetToken } from '../lib/authStore';
+import { requestPasswordReset } from '../lib/authStore';
+import { toast } from '../lib/toast';
+import { GoogleIcon } from '../components/GoogleIcon';
 
 export default function CheckEmailPage() {
   const [countdown, setCountdown] = useState(28);
@@ -9,6 +11,7 @@ export default function CheckEmailPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const email = searchParams.get('email') || 'operator@payresolve.dev';
+  const token = searchParams.get('token');
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
@@ -26,8 +29,13 @@ export default function CheckEmailPage() {
     };
   }, []);
 
-  const handleResend = () => {
-    createPasswordResetToken(email);
+  const handleResend = async () => {
+    try {
+      await requestPasswordReset(email);
+      toast.success('Reset link resent successfully.');
+    } catch {
+      // ignore
+    }
     setCountdown(30);
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
@@ -52,6 +60,27 @@ export default function CheckEmailPage() {
             If an account exists for {email}, a reset link is on its way.
           </p>
         </div>
+
+        {/* Demo Mode On-Screen Reset Notice */}
+        {token && (
+          <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 space-y-1.5">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-blue-800 dark:text-blue-300">
+              <GoogleIcon name="info" className="text-sm" />
+              <span>Demo Mode: Direct Reset Link</span>
+            </div>
+            <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
+              No live email service is configured in sandbox. You can reset your password directly:
+            </p>
+            <div className="pt-1">
+              <Link
+                to={`/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`}
+                className="inline-flex items-center text-xs font-semibold text-blue-600 dark:text-blue-300 hover:underline"
+              >
+                Proceed to reset password &rarr;
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Central Illustration Area */}
         <div className="bg-[#edf3fa] dark:bg-[#131b26] rounded-2xl p-8 flex flex-col items-center justify-center space-y-5 border border-slate-200/60 dark:border-slate-800/80">

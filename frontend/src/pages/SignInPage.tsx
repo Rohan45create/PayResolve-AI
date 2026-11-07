@@ -7,27 +7,40 @@ export default function SignInPage() {
   const [identifier, setIdentifier] = useState('operator');
   const [password, setPassword] = useState('••••••••');
   const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // If using the default bullet placeholder value, treat as operator password
-    const realPassword = password === '••••••••' ? 'operator123' : password;
+    // If using the default bullet placeholder value, try test credentials
+    const realPassword = password === '••••••••' ? 'test_operator_password' : password;
 
     if (!identifier.trim() || !realPassword) {
       setErrorMsg('Please enter your username and password.');
       return;
     }
 
-    const res = authenticateUser(identifier.trim(), realPassword);
-    if (!res.success) {
-      setErrorMsg(res.error || 'Invalid credentials.');
-      return;
+    setLoading(true);
+    try {
+      const res = await authenticateUser(identifier.trim(), realPassword);
+      if (!res.success) {
+        // Fallback retry for local demo operator123 if test_operator_password failed
+        if (password === '••••••••') {
+          const fallback = await authenticateUser(identifier.trim(), 'operator123');
+          if (fallback.success) {
+            navigate('/queue');
+            return;
+          }
+        }
+        setErrorMsg(res.error || 'Invalid credentials.');
+        return;
+      }
+      navigate('/queue');
+    } finally {
+      setLoading(false);
     }
-
-    navigate('/queue');
   };
 
   return (
@@ -88,9 +101,10 @@ export default function SignInPage() {
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-sm shadow-sm cursor-pointer transition-all"
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-sm shadow-sm cursor-pointer transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Sign in
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 

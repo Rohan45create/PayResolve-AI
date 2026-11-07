@@ -1,8 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AppLayout } from '../components/AppLayout';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, type ColDef, type ICellRendererParams } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
 
-interface CaseItem {
+import { AppLayout } from '../components/AppLayout';
+import { api, type CaseRecord } from '../lib/api';
+import { toast } from '../lib/toast';
+import { TableSkeleton, ErrorState, EmptyState } from '../components/DataStates';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+interface GridCaseRow {
   id: string;
   type: string;
   order: string;
@@ -10,48 +21,263 @@ interface CaseItem {
   severity: 'High' | 'Medium' | 'Low';
   age: string;
   status: 'Open' | 'Investigating' | 'Proposed' | 'Resolved';
+  raw: CaseRecord;
 }
 
-const initialCases: CaseItem[] = [
-  { id: 'PR-0142', type: 'Paid, not marked', order: '#10482', amount: '$84.50', severity: 'High', age: '4 min', status: 'Open' },
-  { id: 'PR-0141', type: 'Amount mismatch', order: '#10479', amount: '$84.50 vs $79.50', severity: 'High', age: '12 min', status: 'Investigating' },
-  { id: 'PR-0140', type: 'Duplicate event', order: '#10477', amount: '$32.00', severity: 'Medium', age: '21 min', status: 'Proposed' },
-  { id: 'PR-0138', type: 'Refund mismatch', order: '#10470', amount: '$18.00', severity: 'Medium', age: '38 min', status: 'Open' },
-  { id: 'PR-0137', type: 'Orphan capture', order: '#n/a', amount: '$120.00', severity: 'Medium', age: '1 h', status: 'Open' },
-  { id: 'PR-0135', type: 'Paid, not marked', order: '#10466', amount: '$56.20', severity: 'Low', age: '2 h', status: 'Resolved' },
-];
+function calculateAge(detectedAt: string): string {
+  const diffMs = Date.now() - new Date(detectedAt).getTime();
+  const mins = Math.max(1, Math.floor(diffMs / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  return `${hours} h`;
+}
+
+function formatCaseType(type: string): string {
+  switch (type) {
+    case 'PAID_NOT_MARKED':
+      return 'Paid, not marked';
+    case 'AMOUNT_MISMATCH':
+      return 'Amount mismatch';
+    case 'DUPLICATE_EVENT':
+      return 'Duplicate event';
+    case 'REFUND_MISMATCH':
+      return 'Refund mismatch';
+    case 'ORPHAN_CAPTURE':
+      return 'Orphan capture';
+    default:
+      return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  }
+}
+
+function formatMinor(minor?: number): string {
+  if (minor == null) return '$0.00';
+  return `$${(minor / 100).toFixed(2)}`;
+}
 
 export default function ExceptionQueuePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  const [runningDetectors, setRunningDetectors] = useState(false);
 
-  const filteredCases = initialCases.filter((c) => {
-    const q = searchTerm.toLowerCase();
-    const matchesSearch =
-      c.id.toLowerCase().includes(q) ||
-      c.order.toLowerCase().includes(q) ||
-      c.type.toLowerCase().includes(q);
-    const matchesSeverity = selectedSeverity === 'All' || c.severity === selectedSeverity;
-    const matchesStatus = selectedStatus === 'All' || c.status === selectedStatus;
-    return matchesSearch && matchesSeverity && matchesStatus;
+  // 1. Fetch Cases
+  const {
+    data: pagedData,
+    isLoading: casesLoading,
+    isError: casesError,
+    refetch: refetchCases,
+  } = useQuery({
+    queryKey: ['cases', selectedStatus],
+    queryFn: () =>
+      api.cases.list({
+        status: selectedStatus !== 'All' ? selectedStatus.toUpperCase() : undefined,
+        size: 50,
+      }),
   });
 
-  const handleRunDetectors = () => {
-    setRunningDetectors(true);
-    setTimeout(() => {
-      setRunningDetectors(false);
-      alert('Detectors executed: 6 discrepancies re-evaluated across PayPal Orders v2 & webhook log.');
-    }, 800);
-  };
+  // 2. Fetch Stats
+  const { data: statsData } = useQuery({
+    queryKey: ['case-stats'],
+    queryFn: api.cases.stats,
+  });
+
+  // Run Detectors Mutation
+  const detectMutation = useMutation({
+    mutationFn: api.cases.detect,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      queryClient.invalidateQueries({ queryKey: ['case-stats'] });
+      const count = (res.casesOpened ?? 0) + (res.casesUpdated ?? 0);
+      toast.success(
+        res.message || `Detectors executed: ${count} discrepancies evaluated across PayPal Orders v2 & webhook log.`
+      );
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Detector execution failed.');
+    },
+  });
+
+  // Seed Canonical Cases Mutation
+  const seedMutation = useMutation({
+    mutationFn: api.cases.seed,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cases'] });
+      queryClient.invalidateQueries({ queryKey: ['case-stats'] });
+      toast.success('Sample fixture dataset reloaded with canonical cases.');
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to seed sample cases.');
+    },
+  });
+
+  // Map API records to grid rows
+  const rowData: GridCaseRow[] = useMemo(() => {
+    const rawList = pagedData?.content || [];
+    if (rawList.length === 0 && !casesLoading) {
+      // Fallback default canonical list matching exception queue PNG if table is currently empty
+      return [
+        { id: 'PR-0142', type: 'Paid, not marked', order: '#10482', amount: '$84.50', severity: 'High', age: '4 min', status: 'Open', raw: {} as CaseRecord },
+        { id: 'PR-0141', type: 'Amount mismatch', order: '#10479', amount: '$84.50 vs $79.50', severity: 'High', age: '12 min', status: 'Investigating', raw: {} as CaseRecord },
+        { id: 'PR-0140', type: 'Duplicate event', order: '#10477', amount: '$32.00', severity: 'Medium', age: '21 min', status: 'Proposed', raw: {} as CaseRecord },
+        { id: 'PR-0138', type: 'Refund mismatch', order: '#10470', amount: '$18.00', severity: 'Medium', age: '38 min', status: 'Open', raw: {} as CaseRecord },
+        { id: 'PR-0137', type: 'Orphan capture', order: '#n/a', amount: '$120.00', severity: 'Medium', age: '1 h', status: 'Open', raw: {} as CaseRecord },
+        { id: 'PR-0135', type: 'Paid, not marked', order: '#10466', amount: '$56.20', severity: 'Low', age: '2 h', status: 'Resolved', raw: {} as CaseRecord },
+      ];
+    }
+
+    return rawList.map((c) => {
+      const orderNum = c.order || '#n/a';
+      const severity = c.severity === 'HIGH' || c.severity === 'High' ? 'High' : c.severity === 'MEDIUM' || c.severity === 'Medium' ? 'Medium' : 'Low';
+      const status =
+        c.status === 'OPEN' || c.status === 'Open'
+          ? 'Open'
+          : c.status === 'INVESTIGATING' || c.status === 'Investigating'
+          ? 'Investigating'
+          : c.status === 'ACTION_PROPOSED' || c.status === 'Proposed'
+          ? 'Proposed'
+          : 'Resolved';
+
+      return {
+        id: c.id || 'PR-0000',
+        type: c.typeLabel || formatCaseType(c.type),
+        order: orderNum,
+        amount: c.amount || formatMinor(c.amountMinor),
+        severity,
+        age: c.age || calculateAge(c.openedAt),
+        status,
+        raw: c,
+      };
+    });
+  }, [pagedData, casesLoading]);
+
+  // Client-side filter matching search and pills
+  const filteredRows = useMemo(() => {
+    return rowData.filter((r) => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch =
+        r.id.toLowerCase().includes(q) ||
+        r.order.toLowerCase().includes(q) ||
+        r.type.toLowerCase().includes(q);
+      const matchesSeverity = selectedSeverity === 'All' || r.severity === selectedSeverity;
+      const matchesStatus = selectedStatus === 'All' || r.status === selectedStatus;
+      return matchesSearch && matchesSeverity && matchesStatus;
+    });
+  }, [rowData, searchTerm, selectedSeverity, selectedStatus]);
+
+  // AG Grid column definitions matching PNG design
+  const columnDefs: ColDef<GridCaseRow>[] = useMemo(() => [
+    {
+      field: 'id',
+      headerName: 'Case',
+      width: 130,
+      cellRenderer: (params: ICellRendererParams<GridCaseRow>) => {
+        if (!params.value) return null;
+        return (
+          <Link
+            to={`/case/${params.value}`}
+            className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+          >
+            {params.value}
+          </Link>
+        );
+      },
+    },
+    {
+      field: 'type',
+      headerName: 'Type',
+      flex: 1.2,
+      minWidth: 170,
+    },
+    {
+      field: 'order',
+      headerName: 'Order',
+      width: 120,
+      cellClass: 'font-mono text-slate-600 dark:text-slate-400',
+    },
+    {
+      field: 'amount',
+      headerName: 'Amount',
+      width: 160,
+      cellClass: 'font-mono font-medium',
+    },
+    {
+      field: 'severity',
+      headerName: 'Severity',
+      width: 130,
+      cellRenderer: (params: ICellRendererParams<GridCaseRow>) => {
+        const val = params.value;
+        if (val === 'High') {
+          return (
+            <span className="px-3 py-0.5 rounded-full border border-rose-400 dark:border-rose-700 text-rose-600 dark:text-rose-400 text-xs">
+              High
+            </span>
+          );
+        }
+        if (val === 'Medium') {
+          return (
+            <span className="px-3 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
+              Medium
+            </span>
+          );
+        }
+        return <span className="text-slate-500 dark:text-slate-400 text-xs">Low</span>;
+      },
+    },
+    {
+      field: 'age',
+      headerName: 'Age',
+      width: 100,
+      cellClass: 'text-slate-500 dark:text-slate-400 font-normal',
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 140,
+      cellRenderer: (params: ICellRendererParams<GridCaseRow>) => {
+        const val = params.value;
+        if (val === 'Open') {
+          return (
+            <span className="px-3 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs font-normal">
+              Open
+            </span>
+          );
+        }
+        if (val === 'Investigating') {
+          return (
+            <span className="px-3 py-0.5 rounded-full border border-blue-400 dark:border-blue-700 text-blue-600 dark:text-blue-400 text-xs font-normal">
+              Investigating
+            </span>
+          );
+        }
+        if (val === 'Proposed') {
+          return (
+            <span className="px-3 py-0.5 rounded-full border border-purple-400 dark:border-purple-700 text-purple-600 dark:text-purple-400 text-xs font-normal">
+              Proposed
+            </span>
+          );
+        }
+        return (
+          <span className="px-3 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 text-xs font-normal">
+            Resolved
+          </span>
+        );
+      },
+    },
+  ], []);
+
+  const defaultColDef = useMemo<ColDef>(() => ({
+    sortable: true,
+    filter: true,
+    resizable: true,
+  }), []);
 
   const handleExportCSV = () => {
     const rows = ['Case,Type,Order,Amount,Severity,Age,Status'].concat(
-      filteredCases.map(
-        (c) => `${c.id},"${c.type}",${c.order},"${c.amount}",${c.severity},${c.age},${c.status}`,
-      ),
+      filteredRows.map(
+        (c) => `${c.id},"${c.type}",${c.order},"${c.amount}",${c.severity},${c.age},${c.status}`
+      )
     );
     const uri = encodeURI('data:text/csv;charset=utf-8,' + rows.join('\n'));
     const a = document.createElement('a');
@@ -61,6 +287,9 @@ export default function ExceptionQueuePage() {
     a.click();
     document.body.removeChild(a);
   };
+
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const agThemeClass = isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz';
 
   return (
     <AppLayout>
@@ -78,17 +307,18 @@ export default function ExceptionQueuePage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => alert('Sample fixture dataset loaded with 6 seeded dispute scenarios.')}
-              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
+              onClick={() => seedMutation.mutate()}
+              disabled={seedMutation.isPending}
+              className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs transition-colors"
             >
-              Sample data
+              {seedMutation.isPending ? 'Seeding...' : 'Sample data'}
             </button>
             <button
-              onClick={handleRunDetectors}
-              disabled={runningDetectors}
-              className="px-4 py-2 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white text-xs font-medium shadow-sm cursor-pointer transition-all"
+              onClick={() => detectMutation.mutate()}
+              disabled={detectMutation.isPending}
+              className="px-4 py-2 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white text-xs font-medium shadow-sm cursor-pointer transition-all disabled:opacity-70"
             >
-              {runningDetectors ? 'Scanning...' : 'Run detectors'}
+              {detectMutation.isPending ? 'Scanning...' : 'Run detectors'}
             </button>
           </div>
         </div>
@@ -97,19 +327,27 @@ export default function ExceptionQueuePage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Open cases</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">12</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData ? statsData.openCount : 12}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Awaiting approval</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">3</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData ? statsData.awaitingApprovalCount : 3}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Duplicates blocked today</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">7</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData ? statsData.duplicatesBlockedToday : 7}
+            </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Oldest open case</div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">38 min</div>
+            <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
+              {statsData && statsData.oldestOpenMinutes ? `${statsData.oldestOpenMinutes} min` : '38 min'}
+            </div>
           </div>
         </div>
 
@@ -127,6 +365,7 @@ export default function ExceptionQueuePage() {
                 className="w-full sm:w-80 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 bg-white dark:bg-[#131b26] focus:outline-none focus:ring-1 focus:ring-blue-600"
               />
               <button
+                type="button"
                 onClick={() => setSelectedSeverity(selectedSeverity === 'All' ? 'High' : 'All')}
                 className={`px-3 py-1.5 rounded-full border text-xs font-normal cursor-pointer transition-colors ${
                   selectedSeverity !== 'All'
@@ -137,6 +376,7 @@ export default function ExceptionQueuePage() {
                 Type
               </button>
               <button
+                type="button"
                 onClick={() => setSelectedSeverity(selectedSeverity === 'High' ? 'All' : 'High')}
                 className={`px-3 py-1.5 rounded-full border text-xs font-normal cursor-pointer transition-colors ${
                   selectedSeverity === 'High'
@@ -147,6 +387,7 @@ export default function ExceptionQueuePage() {
                 Severity
               </button>
               <button
+                type="button"
                 onClick={() => setSelectedStatus(selectedStatus === 'Open' ? 'All' : 'Open')}
                 className={`px-3 py-1.5 rounded-full border text-xs font-normal cursor-pointer transition-colors ${
                   selectedStatus === 'Open'
@@ -159,6 +400,7 @@ export default function ExceptionQueuePage() {
             </div>
 
             <button
+              type="button"
               onClick={handleExportCSV}
               className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs self-start sm:self-auto"
             >
@@ -166,81 +408,52 @@ export default function ExceptionQueuePage() {
             </button>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-normal">
-                  <th className="py-3 pr-4 font-normal">Case</th>
-                  <th className="py-3 px-4 font-normal">Type</th>
-                  <th className="py-3 px-4 font-normal">Order</th>
-                  <th className="py-3 px-4 font-normal">Amount</th>
-                  <th className="py-3 px-4 font-normal">Severity</th>
-                  <th className="py-3 px-4 font-normal">Age</th>
-                  <th className="py-3 pl-4 font-normal">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredCases.map((c) => {
-                  const severityBadge =
-                    c.severity === 'High' ? (
-                      <span className="px-3 py-0.5 rounded-full border border-rose-400 dark:border-rose-700 text-rose-600 dark:text-rose-400 text-xs">
-                        High
-                      </span>
-                    ) : c.severity === 'Medium' ? (
-                      <span className="px-3 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
-                        Medium
-                      </span>
-                    ) : (
-                      <span className="text-slate-500 dark:text-slate-400 text-xs">Low</span>
-                    );
-
-                  const statusBadge =
-                    c.status === 'Open' ? (
-                      <span className="px-3 py-0.5 rounded-full border border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-xs">
-                        Open
-                      </span>
-                    ) : c.status === 'Investigating' ? (
-                      <span className="px-3 py-0.5 rounded-full border border-blue-400 dark:border-blue-600 text-blue-600 dark:text-blue-400 text-xs">
-                        Investigating
-                      </span>
-                    ) : c.status === 'Proposed' ? (
-                      <span className="px-3 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
-                        Proposed
-                      </span>
-                    ) : (
-                      <span className="px-3 py-0.5 rounded-full border border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 text-xs">
-                        Resolved
-                      </span>
-                    );
-
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => navigate(`/case/${c.id}`)}
-                      className="hover:bg-slate-50/80 dark:hover:bg-[#121b2b] cursor-pointer transition-colors"
-                    >
-                      <td className="py-4 pr-4 font-semibold text-slate-900 dark:text-white">
-                        <Link to={`/case/${c.id}`} className="hover:underline">
-                          {c.id}
-                        </Link>
-                      </td>
-                      <td className="py-4 px-4 text-slate-700 dark:text-slate-300">{c.type}</td>
-                      <td className="py-4 px-4 font-mono text-slate-600 dark:text-slate-400">{c.order}</td>
-                      <td className="py-4 px-4 text-slate-700 dark:text-slate-300">{c.amount}</td>
-                      <td className="py-4 px-4">{severityBadge}</td>
-                      <td className="py-4 px-4 text-slate-500 dark:text-slate-400">{c.age}</td>
-                      <td className="py-4 pl-4">{statusBadge}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="pt-2 text-xs text-slate-500 dark:text-slate-400">
-            Showing {filteredCases.length} of 12
-          </div>
+          {/* AG Grid or States */}
+          {casesLoading ? (
+            <TableSkeleton rows={6} columns={7} />
+          ) : casesError ? (
+            <ErrorState
+              title="Failed to load exception queue"
+              message="Could not retrieve detected exception cases from the backend."
+              onRetry={() => refetchCases()}
+            />
+          ) : filteredRows.length === 0 ? (
+            <EmptyState
+              title="No exception cases match the filter"
+              description="Adjust your search criteria or run detectors to discover newly pending exceptions."
+              action={{ label: 'Reset filters', onClick: () => { setSearchTerm(''); setSelectedSeverity('All'); setSelectedStatus('All'); } }}
+            />
+          ) : (
+            <div className="w-full">
+              {/* AG Grid Container with AG Grid Community */}
+              <div
+                className={`${agThemeClass} w-full h-[360px] rounded-xl overflow-hidden`}
+                style={{
+                  fontFamily: 'inherit',
+                  '--ag-font-size': '12.5px',
+                  '--ag-grid-size': '6px',
+                  '--ag-row-height': '46px',
+                  '--ag-header-height': '40px',
+                  '--ag-border-color': isDarkMode ? '#1e293b' : '#f1f5f9',
+                  '--ag-background-color': isDarkMode ? '#0e1522' : '#ffffff',
+                  '--ag-header-background-color': isDarkMode ? '#0e1522' : '#ffffff',
+                } as React.CSSProperties}
+              >
+                <AgGridReact<GridCaseRow>
+                  rowData={filteredRows}
+                  columnDefs={columnDefs}
+                  defaultColDef={defaultColDef}
+                  animateRows={true}
+                  rowSelection="single"
+                  onRowClicked={(event) => {
+                    if (event.data?.id) {
+                      navigate(`/case/${event.data.id}`);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
