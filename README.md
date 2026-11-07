@@ -116,6 +116,51 @@ The UI starts at `http://localhost:5173`.
 
 ---
 
+## Webhook Testing with Cloudflare Tunnel (`cloudflared`)
+
+To receive real PayPal Sandbox webhooks on your local workstation without opening firewall ports:
+
+### 1. Install and Start `cloudflared`
+Download `cloudflared` (via `brew install cloudflared`, `winget install Cloudflare.cloudflared`, or from [Cloudflare Releases](https://github.com/cloudflare/cloudflared/releases)). Then expose your local backend server:
+
+```bash
+cloudflared tunnel --url http://localhost:8080
+```
+
+Cloudflare outputs a publicly accessible HTTPS URL, e.g.:
+```
+https://subdomain-random-words.trycloudflare.com
+```
+
+### 2. Configure Environment (`.env`)
+Update your local `.env` with the public URL:
+```bash
+APP_PUBLIC_URL=https://subdomain-random-words.trycloudflare.com
+```
+
+### 3. Register Webhook in PayPal Developer Dashboard
+1. Log in to [developer.paypal.com](https://developer.paypal.com/dashboard/applications/sandbox).
+2. Open your Sandbox REST Application.
+3. Under **Webhooks**, click **Add Webhook**.
+4. Set **Webhook URL** to:
+   ```
+   https://subdomain-random-words.trycloudflare.com/api/webhooks/paypal
+   ```
+5. Select event subscriptions:
+   - `Payment capture completed` (`PAYMENT.CAPTURE.COMPLETED`)
+   - `Payment capture refunded` (`PAYMENT.CAPTURE.REFUNDED`)
+   - `Checkout order approved` (`CHECKOUT.ORDER.APPROVED`)
+   - `Customer dispute created` (`CUSTOMER.DISPUTE.CREATED`)
+6. Copy the assigned **Webhook ID** and set it in `.env`:
+   ```bash
+   PAYPAL_WEBHOOK_ID=your_paypal_webhook_id
+   ```
+
+### 4. Verify in Event Inbox
+When orders are captured or disputed in PayPal Sandbox, events arrive at `POST /api/webhooks/paypal`, are cryptographically verified against PayPal's verification API, stored in `webhook_events`, and displayed in real time on the **Event Inbox** page (`/events`).
+
+---
+
 ## Demo Roles & Credentials
 
 For hackathon judges and evaluators:

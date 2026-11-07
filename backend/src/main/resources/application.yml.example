@@ -54,6 +54,11 @@ payresolve:
   session-timeout: ${SESSION_TIMEOUT:30m}
   cors:
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+  ingest:
+    worker-enabled: ${INGEST_WORKER_ENABLED:true}
+    worker-interval-ms: ${INGEST_WORKER_INTERVAL_MS:2000}
+    max-attempts: ${INGEST_MAX_ATTEMPTS:3}
+    initial-backoff-ms: ${INGEST_INITIAL_BACKOFF_MS:1000}
   supabase:
     url: ${SUPABASE_URL:}
     anon-key: ${SUPABASE_ANON_KEY:}

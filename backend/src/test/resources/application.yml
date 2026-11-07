@@ -10,6 +10,9 @@ spring:
     password: ""
   flyway:
     enabled: false
+  sql:
+    init:
+      mode: always
   ai:
     google:
       genai:
@@ -44,6 +47,11 @@ payresolve:
   session-timeout: 30m
   cors:
     allowed-origins: http://localhost:5173
+  ingest:
+    worker-enabled: false
+    worker-interval-ms: 10000
+    max-attempts: 3
+    initial-backoff-ms: 50
   supabase:
     url: https://test-ref.supabase.co
     anon-key: test-anon-key

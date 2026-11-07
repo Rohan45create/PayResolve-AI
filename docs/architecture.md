@@ -108,6 +108,9 @@ sequenceDiagram
 
 Rules: persist before processing; a duplicate event id inserts nothing and returns 200; processing is safe to retry; out-of-order events are tolerated by re-reading state from PayPal when needed.
 
+For local development and testing with real PayPal Sandbox webhooks, expose the backend via Cloudflare Tunnel:
+`cloudflared tunnel --url http://localhost:8080`, set `APP_PUBLIC_URL=https://<tunnel>.trycloudflare.com`, and register `https://<tunnel>.trycloudflare.com/api/webhooks/paypal` as the webhook URL with `PAYPAL_WEBHOOK_ID` in `.env`.
+
 ### 6.3 Detection
 Detectors run after each processed event and on a schedule. Each detector is a pure function over a snapshot `(paypalState, shopState, events)` and returns zero or more findings. A finding opens or updates a case, keyed by `(caseType, paypalOrderId)` so reruns do not create duplicates.
 
