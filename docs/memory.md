@@ -57,6 +57,7 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-07 | Webhook inbox, deduplication & worker architecture | Implemented durable webhook_events inbox under /api/webhooks/paypal and /api/events. Unverified events stored with verified=false and never processed; duplicate event IDs return 200 without inserting; background worker claims PENDING events with FOR UPDATE SKIP LOCKED with exponential backoff; idempotent business effects guarded by state checks and payment capture ID; demo fault switches honored (fail handler, drop webhook, duplicate delivery); 8-case integration test suite including 10x webhook replay verification. |
 | 2026-11-07 | Demo shop and database-backed fault switches | Implemented demo shop catalog (seeded 3 items: Ceramic mug $24, Canvas tote $38.50, Notebook set $22), order creation with minor unit calculation, PayPal checkout and server-side capture. Order transitions to AWAITING_CONFIRMATION on capture and moves to PAID only upon verified webhook processing. Added simulated refunds and shipments. Fault switches persisted in demo_fault_switches with in-memory atomic mirrors, guarded by payresolve.demo-mode, reset endpoint, and ORD- prefix for order URLs. |
 | 2026-11-07 | Cases module and pure detector architecture | Implemented Detector interface and 5 pure detector classes (PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE) operating over immutable DetectionSnapshot. Enforced single case per (type, paypalOrderId) with rerun updates. Connected event-driven detection in WebhookWorkerService and on-demand detection via POST /api/cases/detect. Supported full case lifecycle (OPEN, INVESTIGATING, ACTION_PROPOSED, RESOLVED, DISMISSED), pagination and filtering, and seeded canonical cases matching the exception queue frontend. |
+| 2026-11-07 | Evidence module: Graph and timeline derived at read time | Normalized records into case_evidence items; derived DAG with nodes (PAYPAL_ORDER, PAYPAL_CAPTURE, PAYPAL_REFUND, WEBHOOK_EVENT, SHOP_ORDER, SHIPMENT, DISPUTE, DISPUTE_EVIDENCE, OPERATOR_ACTION) and edges (CAPTURES, NOTIFIED_BY, FULFILLS, REFUNDS, DISPUTES, PROVES, ACTED_ON); missing links returned as nodes with status MISSING and dashed edges; exposed GET /api/cases/{id}/graph and /timeline; verified with unit and integration tests across all 5 case types. |
 
 ## Backend cleanup findings
 
@@ -89,7 +90,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 | Demo shop and fault switches | DONE | Products catalog, orders, PayPal checkout & capture, AWAITING_CONFIRMATION lifecycle, refunds, simulated shipments, DB-backed fault switches |
 | Detectors (P0) | DONE | Pure detectors for PAID_NOT_MARKED, AMOUNT_MISMATCH, DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE; rerun dedupe, lifecycle transitions & seed API |
 | AG Grid queue (AG Studio / Prize target) | TODO | Day 6 |
-| Evidence graph and timeline | TODO | Day 7 |
+| Evidence graph and timeline | DONE | Graph and chronological timeline derived at read time from case_evidence items; missing nodes & dashed edges; GET /api/cases/{id}/graph & /timeline |
 | AI investigator (Google Gemini via Spring AI) | TODO | Configurable by env vars; free tier |
 | Actions, approval, audit, login | TODO | Day 9 |
 | Benchmark numbers | TODO | Day 10 |
@@ -133,6 +134,8 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 - Order status lifecycle invariant: Order status moves to `AWAITING_CONFIRMATION` upon capture; only the verified webhook worker transitions the order to `PAID`. This allows fault switches (`failWebhookHandler`, `dropWebhook`) to cleanly simulate broken reconciliation.
 - Global MVC prefix: Spring WebMvcConfigurer `addPathPrefix("/api")` automatically prepends `/api` to all `@RestController` endpoints; declaring `@RequestMapping("/cases")` produces `/api/cases`, whereas declaring `@RequestMapping("/api/cases")` results in 404 (`/api/api/cases`).
 - Money parsing from external APIs: PayPal Amount values (e.g. `"84.50"`) must be converted using `Money.parse(value, currency)` rather than `Money.of(long, currency)` to prevent type conversion errors and preserve decimal-to-minor scale fidelity.
+- Read-time Evidence Graph derivation: Normalizing discrete entities (orders, captures, refunds, webhooks, shipments) into `case_evidence` preserves source integrity while allowing missing links (e.g. absent PAID state or orphaned merchant orders) to be derived dynamically and rendered with dashed edges and `MISSING` status without polluting persistent state.
+- Fallback capture node synthesis: When testing or viewing cases where payment capture records are not yet linked in database tables, synthesizing a capture evidence item from the case's PayPal order ID and minor amount guarantees graph connectivity across all discrepancy types.
 
 ## Glossary
 
