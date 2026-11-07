@@ -39,8 +39,13 @@ Living file. Read it at the start of every session (human or AI assistant) and u
 | 2026-11-02 | No money-moving actions in v1 | Safety and scope |
 | 2026-11-02 | Use synthetic, labelled dispute fixtures if the Sandbox Disputes API is not usable | Disputes testing may need extra scopes |
 | 2026-11-02 | License: MIT | Standard, permissive open-source license required by hackathon |
-| 2026-11-06 | Switched managed DB to Supabase | PostgreSQL-compatible cloud DB with built-in SSL and connection pooling |
-| TBD | LLM provider and model | Decide by 3 Nov |
+| 2026-11-06 | Switched managed DB to Supabase free Postgres | Free tier, use Session pooler connection string, not Render Postgres. A GitHub Action keeps it active |
+| 2026-11-07 | LLM: Google Gemini free tier via Spring AI | Zero cost, high rate limits on free tier, keep provider configurable by env vars |
+| 2026-11-07 | Hosting: Render via hackathon credits | Paid tier using credits with free-plan fallback |
+| 2026-11-07 | Backend Spring Boot version: 4.1.x | Project requirement is Spring Boot 4.1.x (repo currently at 3.4.2; fix in next step) |
+| 2026-11-07 | Target partners & prizes | Use PayPal, APIMatic Context Plugin, AG Studio (AG Grid prize), Render, Postman. Skip Bryntum, Elastic, Zapier, Astropods, KERNEL, Channel3 |
+| 2026-11-07 | Schedule & milestones | Today is 7 Nov. Feature freeze end of 10 Nov. Submit by 12 Nov 6:00 pm IST (hard deadline 12:00 pm PST, 12 Nov) |
+| 2026-11-07 | Frontend integration status | Frontend is built by teammate and currently uses mock data and localStorage auth; will be wired to the backend API |
 
 ## Current status
 
@@ -48,22 +53,24 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 
 | Area | Status | Notes |
 |---|---|---|
-| Docs (prd, architecture, phases, rules, memory) | DONE | Created 2 Nov |
-| Repo, CI, scaffolds | DONE | Backend & frontend build & test verified locally and in CI |
+| Docs (prd, architecture, phases, rules, memory) | DONE | Aligned with 7 Nov decisions |
+| Repo, CI, scaffolds | DONE | Backend (Boot 3.4.2 -> 4.1.x next) & frontend scaffolds verified |
+| Database & Keepalive Action | DOING | Supabase free Postgres (Session pooler) + GitHub Action keepalive |
+| Frontend UI & mock wiring | DOING | Built by teammate with mock data & localStorage auth; wiring to backend |
 | PayPal Sandbox app and credentials | TODO | Day 1 |
 | Create, approve, capture a Sandbox order | TODO | Day 2 |
 | Webhook endpoint on a public URL | TODO | Day 2 |
 | Disputes API access check | TODO | Day 2 |
 | Signature verification and event inbox | TODO | Day 3 |
-| Render deployment skeleton | TODO | Day 3 |
+| Render deployment skeleton | TODO | Paid with hackathon credits, free-plan fallback |
 | Demo shop and fault switches | TODO | Day 4 |
 | Detectors (P0) | TODO | Day 5 |
-| AG Grid queue | TODO | Day 6 |
+| AG Grid queue (AG Studio / Prize target) | TODO | Day 6 |
 | Evidence graph and timeline | TODO | Day 7 |
-| AI investigator and verifier | TODO | Day 8 |
+| AI investigator (Google Gemini via Spring AI) | TODO | Configurable by env vars; free tier |
 | Actions, approval, audit, login | TODO | Day 9 |
 | Benchmark numbers | TODO | Day 10 |
-| README, license, video, submission | TODO | Days 10 to 11 |
+| README, license, video, submission | TODO | Submit by 12 Nov 6 pm IST (feature freeze 10 Nov) |
 
 ## Next up
 
@@ -101,9 +108,7 @@ Update this table as you go. Status: TODO, DOING, DONE, CUT.
 
 ## Open questions
 
-- Which LLM provider and model for the demo, and what are its rate limits and costs?
 - Can the Sandbox Disputes API be exercised with default app scopes?
-- Is Bryntum worth the time, or is a simple timeline enough?
 - Will the video use live or cached investigations? (Default: cached for seeded cases, live path still shown once.)
 
 ## Session log

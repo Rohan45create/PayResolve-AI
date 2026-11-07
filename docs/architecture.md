@@ -38,21 +38,21 @@ flowchart LR
 | Frontend | React 19 + TypeScript (strict) + Vite | |
 | Styling | Tailwind CSS v4 | CSS-first config (`@import "tailwindcss"`, `@theme`), `@tailwindcss/vite` plugin |
 | Data fetching | TanStack Query, React Router | |
-| Grid | AG Grid Community | Exception queue; sponsor prize target |
+| Grid | AG Grid Community / AG Studio | Exception queue; AG Grid sponsor prize target |
 | Graph | `@xyflow/react` (React Flow) | Evidence graph |
 | Validation | Zod (UI forms), Bean Validation (API) | |
 | Tests | JUnit 5, Testcontainers, WireMock (PayPal stubs), Vitest, Testing Library, Playwright (one smoke path) | |
 | Tooling | Postman collection, ngrok or Cloudflare Tunnel (dev), Docker Compose, GitHub Actions | |
-| Hosting | Render: Docker web service (API), static site (UI), managed Postgres | Sponsor prize target |
+| Hosting | Render: Docker web service (API), static site (UI) | Paid via hackathon credits with free-plan fallback; sponsor prize target |
 
-Optional only if time remains: Bryntum timeline for the case timeline, APIMatic for generating an SDK from the OpenAPI spec.
+Partner targets: PayPal, APIMatic Context Plugin, AG Studio (AG Grid prize), Render, Postman. (Skipping Bryntum, Elastic, Zapier, Astropods, KERNEL, Channel3).
 
 ## 4. Repository layout
 
 ```
 payresolve/
   backend/               Spring Boot app (Maven)
-  frontend/              Vite + React + TS + Tailwind v4
+  frontend/              Vite + React + TS + Tailwind v4 (built by teammate; mock data & localStorage auth; wiring to API)
   docs/                  architecture.md memory.md phases.md prd.md rules.md
   infra/                 docker-compose.yml, render.yaml
   postman/               collection + environment (no secrets)
@@ -220,17 +220,17 @@ Structured JSON logs with `caseId`, `eventId`, `paypalOrderId` in MDC; Actuator 
 - Benchmark: 15 to 20 seeded cases with expected case types and expected cited evidence; run produces precision/recall and time-to-cause numbers stored in `benchmark_runs`.
 - E2E: one Playwright smoke path: paid-not-marked case, investigate, approve action.
 
-## 15. Sponsor tool mapping
+## 15. Sponsor & partner tool mapping
 
 | Tool | Where it earns its place |
 |---|---|
-| AG Grid | Exception queue (filters, sorting, severity, SLA) |
-| Render | Hosting for API, UI and Postgres |
-| Postman | Collection for the PayPal flow and webhook replays |
-| Bryntum (optional) | Case timeline |
-| APIMatic (optional) | SDK or docs generated from the OpenAPI spec |
+| PayPal | Sandbox Orders v2, Captures, Webhooks, and Disputes |
+| AG Grid / AG Studio | Exception queue (filters, sorting, severity, SLA); AG Grid prize target |
+| Render | Hosting for backend Docker web service and frontend static site (paid via hackathon credits with free-plan fallback) |
+| Postman | Collection for the PayPal flow, fault scenarios, and webhook replays |
+| APIMatic | APIMatic Context Plugin for API documentation / SDK context |
 
-Everything else is skipped on purpose.
+Skipped sponsors/partners: Bryntum, Elastic, Zapier, Astropods, KERNEL, Channel3.
 
 ## 16. Decisions and trade-offs
 
