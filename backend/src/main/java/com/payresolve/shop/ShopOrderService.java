@@ -416,6 +416,20 @@ public class ShopOrderService {
         return true;
     }
 
+    @Transactional
+    public void markOrderPaid(String shopOrderId) {
+        Instant now = clock.instant();
+        jdbcClient.sql("""
+            UPDATE shop_orders
+            SET status = 'PAID', updated_at = :now
+            WHERE id = :id
+            """)
+            .param("now", Timestamp.from(now))
+            .param("id", shopOrderId)
+            .update();
+        log.info("Marked shop order {} as PAID", shopOrderId);
+    }
+
     // =========================================================================
     // Refunds
     // =========================================================================

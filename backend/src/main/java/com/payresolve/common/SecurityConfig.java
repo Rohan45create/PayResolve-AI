@@ -3,10 +3,16 @@ package com.payresolve.common;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -15,11 +21,16 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Spring Security configuration permitting health probes, API documentation,
- * public webhook endpoints, and establishing CORS policies.
+ * Spring Security configuration establishing:
+ * 1. BCrypt password hashing bean
+ * 2. Session cookie management and CSRF token repository (CookieCsrfTokenRepository)
+ * 3. Role-based access control: OPERATOR required for approving/rejecting actions (403 for viewers)
+ * 4. Public access for authentication, webhooks, documentation, and demo endpoints
+ * 5. Permissive CORS configuration for the frontend origin
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final String allowedOrigins;
@@ -29,16 +40,40 @@ public class SecurityConfig {
     }
 
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/actuator/**", "/api/webhooks/**", "/api/events/**", "/api/demo/**", "/api/shop/**", "/api/cases/**", "/v3/api-docs/**", "/swagger-ui/**")
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .ignoringRequestMatchers(
+                    "/actuator/**",
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/api/webhooks/**",
+                    "/api/events/**",
+                    "/api/demo/**",
+                    "/api/shop/**",
+                    "/api/auth/**",
+                    "/api/cases/**",
+                    "/api/investigations/**",
+                    "/api/benchmark/**"
+                )
+            )
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/actions/*/approve", "/api/actions/*/reject").hasRole("OPERATOR")
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/webhooks/**").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/**").permitAll()
                 .anyRequest().permitAll()
             );
@@ -50,9 +85,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .forEach(configuration::addAllowedOrigin);
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .forEach(configuration::addAllowedOrigin);
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
@@ -64,4 +99,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
