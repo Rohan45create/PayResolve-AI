@@ -24,7 +24,12 @@ spring:
       validation-timeout: 5000
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
-    baseline-on-migrate: true
+    # baseline-on-migrate is intentionally false.
+    # Setting it true causes Flyway to silently skip all migrations on a database
+    # that already has tables but no flyway_schema_history (e.g. a manually seeded
+    # Supabase project). That means schema drift goes undetected. Leave false and
+    # run V1 from scratch on a clean database.
+    baseline-on-migrate: false
     locations: classpath:db/migration
   ai:
     google:
@@ -32,13 +37,27 @@ spring:
         api-key: ${GEMINI_API_KEY:}
         chat:
           options:
-            model: ${AI_MODEL:gemini-2.0-flash}
+            model: ${GEMINI_MODEL:gemini-2.0-flash}
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
+  # Render terminates TLS and proxies HTTP to the container.
+  # native tells Spring to trust X-Forwarded-Proto so that redirect URLs,
+  # session cookies, and actuator links use https rather than http.
+  forward-headers-strategy: native
   servlet:
     session:
       timeout: ${SESSION_TIMEOUT:30m}
+      cookie:
+        # http-only prevents JavaScript access to the session cookie.
+        http-only: true
+        # secure: true sends the cookie only over https.
+        # Leave true in production (behind Render's TLS proxy).
+        # For local dev without https, override to false in your .env.
+        secure: ${SESSION_COOKIE_SECURE:true}
+        # SameSite=Lax allows the cookie to be sent on top-level navigations
+        # (e.g. the PayPal return redirect) while blocking cross-site POST requests.
+        same-site: Lax
 management:
   endpoints:
     web:
@@ -55,6 +74,7 @@ springdoc:
     path: /swagger-ui.html
 payresolve:
   public-url: ${APP_PUBLIC_URL:http://localhost:8080}
+  frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
   demo-mode: ${DEMO_MODE:true}
   session-timeout: ${SESSION_TIMEOUT:30m}
   cors:

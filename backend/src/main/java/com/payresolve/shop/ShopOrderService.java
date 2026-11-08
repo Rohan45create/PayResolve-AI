@@ -37,20 +37,33 @@ public class ShopOrderService {
     private final Clock clock;
     private final PayPalOrdersClient payPalOrdersClient;
     private final DemoFaultSwitches faultSwitches;
+    /**
+     * The API's own public URL — used as a fallback APP_PUBLIC_URL.
+     * Not used for PayPal return/cancel URLs; see frontendOrigin.
+     */
     private final String publicUrl;
+
+    /**
+     * The UI's public origin — used to build PayPal return_url and cancel_url
+     * so that after PayPal approval the buyer lands on the shop UI, not the API.
+     * Corresponds to FRONTEND_ORIGIN / payresolve.frontend-origin.
+     */
+    private final String frontendOrigin;
 
     public ShopOrderService(
             JdbcClient jdbcClient,
             Clock clock,
             PayPalOrdersClient payPalOrdersClient,
             DemoFaultSwitches faultSwitches,
-            @Value("${payresolve.public-url:http://localhost:8080}") String publicUrl
+            @Value("${payresolve.public-url:http://localhost:8080}") String publicUrl,
+            @Value("${payresolve.frontend-origin:http://localhost:5173}") String frontendOrigin
     ) {
         this.jdbcClient = jdbcClient;
         this.clock = clock;
         this.payPalOrdersClient = payPalOrdersClient;
         this.faultSwitches = faultSwitches;
         this.publicUrl = publicUrl;
+        this.frontendOrigin = frontendOrigin;
     }
 
     // =========================================================================
@@ -284,8 +297,11 @@ public class ShopOrderService {
         ShopOrder order = findOrderById(shopOrderId)
             .orElseThrow(() -> new ResourceNotFoundException("Shop order not found: " + shopOrderId));
 
-        String effectiveReturnUrl = (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : (publicUrl + "/shop?status=approved");
-        String effectiveCancelUrl = (cancelUrl != null && !cancelUrl.isBlank()) ? cancelUrl : (publicUrl + "/shop?status=cancelled");
+        // Build return/cancel URLs using the UI origin so the buyer lands on the
+        // shop UI pages after PayPal approval, not on the API server.
+        // The shop UI handles /shop/return and /shop/cancel and reads query params.
+        String effectiveReturnUrl = (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : (frontendOrigin + "/shop/return");
+        String effectiveCancelUrl = (cancelUrl != null && !cancelUrl.isBlank()) ? cancelUrl : (frontendOrigin + "/shop/cancel");
 
         PayPalOrder payPalOrder = payPalOrdersClient.createOrder(
             order.id(),
