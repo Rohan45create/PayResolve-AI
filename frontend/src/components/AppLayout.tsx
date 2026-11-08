@@ -38,7 +38,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#080c14] text-slate-900 dark:text-slate-100 flex flex-col md:flex-row font-sans">
+    <div className="h-screen w-screen overflow-hidden bg-[#f8fafc] dark:bg-[#080c14] text-slate-900 dark:text-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0d131f] border-b border-slate-200 dark:border-slate-800">
@@ -92,7 +92,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       )}
 
       {/* ─── DESKTOP SIDEBAR ─── */}
-      <aside className="w-60 bg-white dark:bg-[#0a0f19] border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shrink-0 py-6 px-4 hidden md:flex sticky top-0 h-screen select-none">
+      <aside className="w-60 bg-white dark:bg-[#0a0f19] border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shrink-0 py-6 px-4 hidden md:flex h-full select-none z-20">
         <div className="space-y-7">
           {/* Brand Logo */}
           <Link to="/" className="px-2 block cursor-pointer">
@@ -155,7 +155,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       </aside>
 
       {/* ─── MAIN PAGE CONTENT ─── */}
-      <main className="flex-1 p-6 sm:p-10 lg:p-12 overflow-y-auto">
+      <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden p-6 sm:p-10 lg:p-12">
         {children}
       </main>
     </div>

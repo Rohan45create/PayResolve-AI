@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AgStudio, createWidgets } from 'ag-studio-react';
 import { AgStudioLicenseManager, studioTheme } from 'ag-studio';
@@ -8,6 +8,7 @@ import { colorSchemeDark } from 'ag-grid-community';
 import { AppLayout } from '../components/AppLayout';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { api } from '../lib/api';
+import { useTheme } from '../lib/theme';
 import {
   CasesByTypeWidget,
   TimeToCauseWidget,
@@ -30,19 +31,7 @@ if (agLicense) {
 export default function OperationsPage() {
   const [studioMode, setStudioMode] = useState<'view' | 'edit'>('view');
   const [showAgent, setShowAgent] = useState(false);
-
-  // Dark mode observation
-  const [isDark, setIsDark] = useState(
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
+  const { isDark } = useTheme();
 
   // 1. Fetch live telemetry data
   const { data: casesData } = useQuery({

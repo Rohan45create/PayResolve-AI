@@ -87,7 +87,13 @@ public class SecurityConfig {
         Arrays.stream(allowedOrigins.split(","))
             .map(String::trim)
             .filter(s -> !s.isEmpty())
-            .forEach(configuration::addAllowedOrigin);
+            .forEach(origin -> {
+                configuration.addAllowedOrigin(origin);
+                if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
+                    configuration.addAllowedOrigin("https://" + origin);
+                    configuration.addAllowedOrigin("http://" + origin);
+                }
+            });
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

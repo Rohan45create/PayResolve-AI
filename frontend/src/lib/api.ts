@@ -109,6 +109,11 @@ export class ApiError extends Error {
   }
 }
 
+const rawBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '') as string;
+export const API_BASE = rawBase
+  ? (rawBase.startsWith('http') ? rawBase : `https://${rawBase}`).replace(/\/$/, '')
+  : '';
+
 /**
  * Extracts a cookie value by name from document.cookie
  */
@@ -123,7 +128,7 @@ export async function fetchCsrfToken(): Promise<string | null> {
   if (token) return token;
 
   try {
-    const res = await fetch('/api/auth/csrf', {
+    const res = await fetch(`${API_BASE}/api/auth/csrf`, {
       method: 'GET',
       credentials: 'include',
     });
@@ -159,7 +164,8 @@ export async function fetchApi<T>(
     }
   }
 
-  const res = await fetch(url, {
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const res = await fetch(fullUrl, {
     ...options,
     headers,
     credentials: 'include',

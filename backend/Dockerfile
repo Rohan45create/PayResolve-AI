@@ -11,7 +11,7 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-RUN chmod +x ./mvnw
+RUN sed -i 's/\r$//' ./mvnw && chmod +x ./mvnw
 
 # Copy source code
 COPY src src
@@ -35,9 +35,8 @@ COPY --from=builder /workspace/target/*.jar app.jar
 
 # Container configuration: 512MB RAM budget (70% MaxRAMPercentage = ~358MB JVM heap)
 ENV SERVER_PORT=8080 \
-    JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError"
+    JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:+ExitOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
-
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

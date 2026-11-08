@@ -2,29 +2,53 @@
 # PayResolve AI — Render Blueprint Infrastructure Specification
 # ==============================================================================
 # Target: Render Web Services (Docker API + Static Site UI)
-# Database: Supabase free PostgreSQL Session Pooler (managed outside Render)
+# Database: Supabase PostgreSQL Session Pooler (port 5432, managed outside Render)
 # Plan: standard/starter using hackathon credits; fallback: free plan if credits expire.
 # ==============================================================================
 
 services:
   # ----------------------------------------------------------------------------
-  # PayResolve Backend API (Spring Boot 4.1.x on Temurin 21)
+  # PayResolve Backend API (Spring Boot 4.1.x on Temurin 21 Docker Web Service)
   # ----------------------------------------------------------------------------
   - type: web
     name: payresolve-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # plan: standard (using hackathon sponsor credits; fallback: free)
     region: oregon
     healthCheckPath: /actuator/health
     envVars:
+      # Safe defaults
       - key: SERVER_PORT
-        value: 8080
+        value: "8080"
       - key: DEMO_MODE
         value: "true"
       - key: SESSION_TIMEOUT
         value: 30m
+      - key: FLYWAY_ENABLED
+        value: "true"
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-2.0-flash
+      - key: OPERATOR_USERNAME
+        value: operator
+      - key: VIEWER_USERNAME
+        value: viewer
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: payresolve-ui
+          property: host
+      - key: APP_PUBLIC_URL
+        fromService:
+          type: web
+          name: payresolve-api
+          property: host
+
+      # Secrets / host-provided variables (marked sync: false)
       - key: DATABASE_URL
         sync: false
       - key: DB_USER
@@ -35,51 +59,42 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
-      - key: PAYPAL_BASE_URL
-        value: https://api-m.sandbox.paypal.com
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
-      - key: AI_PROVIDER
-        value: gemini
       - key: GEMINI_API_KEY
         sync: false
-      - key: AI_MODEL
-        value: gemini-2.0-flash
-      - key: OPERATOR_USERNAME
-        value: operator
       - key: OPERATOR_PASSWORD
         sync: false
-      - key: VIEWER_USERNAME
-        value: viewer
       - key: VIEWER_PASSWORD
         sync: false
-      - key: FRONTEND_ORIGIN
-        fromService:
-          type: web
-          name: payresolve-ui
-          property: host
 
   # ----------------------------------------------------------------------------
-  # PayResolve Frontend UI (Vite + React 19 + Tailwind CSS v4)
+  # PayResolve Frontend UI (Vite + React 19 + Tailwind CSS v4 Static Site)
   # ----------------------------------------------------------------------------
   - type: web
     name: payresolve-ui
     runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist
-    # plan: free (standard static site)
     region: oregon
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: payresolve-api
+          property: host
       - key: VITE_API_URL
         fromService:
           type: web
           name: payresolve-api
           property: host
+      - key: VITE_AG_LICENSE
+        sync: false

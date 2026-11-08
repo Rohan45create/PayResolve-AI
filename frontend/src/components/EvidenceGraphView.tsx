@@ -10,6 +10,7 @@ import '@xyflow/react/dist/style.css';
 import { EvidenceNode } from './EvidenceNode';
 import type { EvidenceNodeData } from './EvidenceNode';
 import type { EvidenceGraphDto, EvidenceNodeDto } from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 interface EvidenceGraphViewProps {
   graph?: EvidenceGraphDto | null;
@@ -26,6 +27,8 @@ function formatMinor(minor?: number, _currency = 'USD'): string | undefined {
 }
 
 export const EvidenceGraphView: React.FC<EvidenceGraphViewProps> = ({ graph, className = '' }) => {
+  const { isDark } = useTheme();
+
   // Convert API DTO into React Flow Nodes and Edges
   const { nodes, edges } = useMemo(() => {
     if (!graph || !graph.nodes || graph.nodes.length === 0) {
@@ -92,17 +95,17 @@ export const EvidenceGraphView: React.FC<EvidenceGraphViewProps> = ({ graph, cla
       ];
 
       const fallbackEdges: Edge[] = [
-        { id: 'e1', source: 'order', target: 'capture', type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } },
-        { id: 'e2', source: 'order', target: 'webhook', type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } },
-        { id: 'e3', source: 'capture', target: 'webhook', type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } },
+        { id: 'e1', source: 'order', target: 'capture', type: 'smoothstep', style: { stroke: isDark ? '#64748b' : '#94a3b8', strokeWidth: 1.5 } },
+        { id: 'e2', source: 'order', target: 'webhook', type: 'smoothstep', style: { stroke: isDark ? '#64748b' : '#94a3b8', strokeWidth: 1.5 } },
+        { id: 'e3', source: 'capture', target: 'webhook', type: 'smoothstep', style: { stroke: isDark ? '#64748b' : '#94a3b8', strokeWidth: 1.5 } },
         {
           id: 'e4',
           source: 'capture',
           target: 'shop_order',
           type: 'smoothstep',
           label: 'missing: PAID update',
-          labelStyle: { fill: '#d97706', fontSize: 10, fontWeight: 500 },
-          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9, rx: 4, ry: 4 },
+          labelStyle: { fill: '#f59e0b', fontSize: 10, fontWeight: 500 },
+          labelBgStyle: { fill: isDark ? '#0f172a' : '#ffffff', fillOpacity: 0.9, rx: 4, ry: 4 },
           style: { stroke: '#f59e0b', strokeWidth: 1.5, strokeDasharray: '4 4' },
           markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
         },
@@ -111,7 +114,7 @@ export const EvidenceGraphView: React.FC<EvidenceGraphViewProps> = ({ graph, cla
           source: 'webhook',
           target: 'shipment',
           type: 'smoothstep',
-          style: { stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' },
+          style: { stroke: isDark ? '#64748b' : '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' },
         },
       ];
 
@@ -172,18 +175,18 @@ export const EvidenceGraphView: React.FC<EvidenceGraphViewProps> = ({ graph, cla
         type: 'smoothstep',
         label: e.label || (isMissing ? `missing: ${e.type?.toLowerCase() || 'link'}` : undefined),
         labelStyle: isMissing
-          ? { fill: '#d97706', fontSize: 10, fontWeight: 500 }
-          : { fill: '#64748b', fontSize: 10 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85, rx: 4, ry: 4 },
+          ? { fill: '#f59e0b', fontSize: 10, fontWeight: 500 }
+          : { fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+        labelBgStyle: { fill: isDark ? '#0f172a' : '#ffffff', fillOpacity: 0.9, rx: 4, ry: 4 },
         style: isMissing
           ? { stroke: '#f59e0b', strokeWidth: 1.5, strokeDasharray: '4 4' }
-          : { stroke: '#94a3b8', strokeWidth: 1.5 },
+          : { stroke: isDark ? '#64748b' : '#94a3b8', strokeWidth: 1.5 },
         markerEnd: isMissing ? { type: MarkerType.ArrowClosed, color: '#f59e0b' } : undefined,
       };
     });
 
     return { nodes: flowNodes, edges: flowEdges };
-  }, [graph]);
+  }, [graph, isDark]);
 
   return (
     <div className={`relative w-full h-[360px] bg-[#f1f5f9]/70 dark:bg-[#080d17] rounded-xl border border-slate-200/60 dark:border-slate-800/80 overflow-hidden ${className}`}>

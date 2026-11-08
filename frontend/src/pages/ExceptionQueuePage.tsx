@@ -9,6 +9,7 @@ import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { AppLayout } from '../components/AppLayout';
 import { api, type CaseRecord } from '../lib/api';
 import { toast } from '../lib/toast';
+import { useTheme } from '../lib/theme';
 import { TableSkeleton, ErrorState, EmptyState } from '../components/DataStates';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -288,8 +289,8 @@ export default function ExceptionQueuePage() {
     document.body.removeChild(a);
   };
 
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  const agThemeClass = isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz';
+  const { isDark } = useTheme();
+  const agThemeClass = isDark ? 'ag-theme-quartz-dark' : 'ag-theme-quartz';
 
   return (
     <AppLayout>
@@ -427,6 +428,7 @@ export default function ExceptionQueuePage() {
             <div className="w-full">
               {/* AG Grid Container with AG Grid Community */}
               <div
+                key={isDark ? 'grid-dark' : 'grid-light'}
                 className={`${agThemeClass} w-full h-[360px] rounded-xl overflow-hidden`}
                 style={{
                   fontFamily: 'inherit',
@@ -434,9 +436,14 @@ export default function ExceptionQueuePage() {
                   '--ag-grid-size': '6px',
                   '--ag-row-height': '46px',
                   '--ag-header-height': '40px',
-                  '--ag-border-color': isDarkMode ? '#1e293b' : '#f1f5f9',
-                  '--ag-background-color': isDarkMode ? '#0e1522' : '#ffffff',
-                  '--ag-header-background-color': isDarkMode ? '#0e1522' : '#ffffff',
+                  '--ag-border-color': isDark ? '#1e293b' : '#f1f5f9',
+                  '--ag-background-color': isDark ? '#0e1522' : '#ffffff',
+                  '--ag-data-background-color': isDark ? '#0e1522' : '#ffffff',
+                  '--ag-wrapper-background-color': isDark ? '#0e1522' : '#ffffff',
+                  '--ag-header-background-color': isDark ? '#0e1522' : '#ffffff',
+                  '--ag-foreground-color': isDark ? '#f1f5f9' : '#0f172a',
+                  '--ag-header-foreground-color': isDark ? '#94a3b8' : '#64748b',
+                  '--ag-row-hover-color': isDark ? '#141f33' : '#f8fafc',
                 } as React.CSSProperties}
               >
                 <AgGridReact<GridCaseRow>

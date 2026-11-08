@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { GoogleIcon } from './GoogleIcon';
-import { toggleTheme, type ThemeMode } from '../lib/theme';
+import { useTheme } from '../lib/theme';
 
 interface ThemeToggleProps {
   className?: string;
@@ -8,35 +8,13 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', variant = 'default' }) => {
-  const [currentTheme, setCurrentTheme] = useState<ThemeMode>(() => {
-    if (typeof document !== 'undefined') {
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    }
-    return 'light';
-  });
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const darkNow = document.documentElement.classList.contains('dark');
-      setCurrentTheme(darkNow ? 'dark' : 'light');
-    });
-
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-
-  const handleToggle = () => {
-    const next = toggleTheme();
-    setCurrentTheme(next);
-  };
-
-  const isDark = currentTheme === 'dark';
+  const { isDark, toggleTheme } = useTheme();
 
   if (variant === 'nav') {
     return (
       <button
         type="button"
-        onClick={handleToggle}
+        onClick={toggleTheme}
         title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
         aria-label="Toggle theme"
         className={`px-3 py-1.5 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 active:scale-[0.97] text-white backdrop-blur-xs transition-all cursor-pointer inline-flex items-center gap-1.5 text-xs font-medium ${className}`}
@@ -59,7 +37,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', varian
   return (
     <button
       type="button"
-      onClick={handleToggle}
+      onClick={toggleTheme}
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       aria-label="Toggle theme"
       className={`p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.97] transition-all cursor-pointer inline-flex items-center justify-center ${className}`}

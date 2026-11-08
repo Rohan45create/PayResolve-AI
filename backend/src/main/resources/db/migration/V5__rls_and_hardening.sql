@@ -74,3 +74,4 @@ ALTER TABLE flyway_schema_history   ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
 GRANT SELECT, INSERT ON public.keepalive TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+

@@ -34,6 +34,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         String[] origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
+                .flatMap(origin -> {
+                    if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
+                        return java.util.stream.Stream.of(origin, "https://" + origin, "http://" + origin);
+                    }
+                    return java.util.stream.Stream.of(origin);
+                })
                 .toArray(String[]::new);
 
         registry.addMapping("/**")

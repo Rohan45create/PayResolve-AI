@@ -10,3 +10,4 @@ public record ShopOrderItem(
     int quantity,
     long unitPriceMinor
 ) {}
+

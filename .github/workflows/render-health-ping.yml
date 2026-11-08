@@ -1,0 +1,54 @@
+name: Render Free-Tier Health Ping
+
+on:
+  schedule:
+    # Pings /actuator/health every 10 minutes to prevent Render free instance idle sleep (15-min timeout)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Override target API URL (e.g. https://payresolve-api.onrender.com)'
+        required: false
+        default: ''
+
+jobs:
+  ping-health:
+    name: Ping /actuator/health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend Health Endpoint
+        env:
+          RENDER_API_URL: ${{ github.event.inputs.target_url || secrets.RENDER_API_URL || 'https://payresolve-api.onrender.com' }}
+        run: |
+          # Only run during demo / judging window or manual trigger
+          # Window: November 2026 judging period
+          CURRENT_EPOCH=$(date +%s)
+          # Nov 8 2026 00:00:00 UTC = 1794096000
+          # Nov 16 2026 23:59:59 UTC = 1794873599
+          START_EPOCH=1794096000
+          END_EPOCH=1794873599
+
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            if [ "$CURRENT_EPOCH" -lt "$START_EPOCH" ] || [ "$CURRENT_EPOCH" -gt "$END_EPOCH" ]; then
+              echo "Outside active demo/judging window ($START_EPOCH - $END_EPOCH). Skipping scheduled keep-alive ping."
+              exit 0
+            fi
+          fi
+
+          TARGET="${RENDER_API_URL%/}/actuator/health"
+          echo "Sending keep-alive ping to: $TARGET"
+
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" --max-time 30 "$TARGET" || echo "000")
+          echo "HTTP response code: $HTTP_CODE"
+
+          if [ -s response.json ]; then
+            cat response.json
+            echo ""
+          fi
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "Health check succeeded. Render instance is active and warm."
+          else
+            echo "Warning: Health check returned HTTP $HTTP_CODE (instance may be waking up or warming)."
+            # Do not hard-fail workflow if free tier was cold-starting
+          fi

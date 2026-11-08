@@ -134,7 +134,16 @@ export default function CaseDetailsPage() {
   const isRejected = proposedAction?.status === 'REJECTED';
 
   // Format type string: PAID_NOT_MARKED -> Paid, not marked
-  const typeFormatted = caseData.type.replace(/_/g, ', ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  const typeFormatted = (() => {
+    switch (caseData.type) {
+      case 'PAID_NOT_MARKED': return 'Paid, not marked';
+      case 'AMOUNT_MISMATCH': return 'Amount mismatch';
+      case 'DUPLICATE_EVENT': return 'Duplicate event';
+      case 'REFUND_MISMATCH': return 'Refund mismatch';
+      case 'ORPHAN_CAPTURE': return 'Orphan capture';
+      default: return caseData.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    }
+  })();
 
   // Severity pill classes
   const severityBadge =
