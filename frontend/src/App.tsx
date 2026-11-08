@@ -13,6 +13,8 @@ import PasswordUpdatedPage from './pages/PasswordUpdatedPage';
 import ExceptionQueuePage from './pages/ExceptionQueuePage';
 import CaseDetailsPage from './pages/CaseDetailsPage';
 import DemoShopPage from './pages/DemoShopPage';
+import ShopReturnPage from './pages/ShopReturnPage';
+import ShopCancelPage from './pages/ShopCancelPage';
 import ActionsAuditPage from './pages/ActionsAuditPage';
 import BenchmarkPage from './pages/BenchmarkPage';
 import SandboxStatusPage from './pages/SandboxStatusPage';
@@ -50,6 +52,8 @@ export default function App() {
           <Route path="/queue" element={<ProtectedRoute><ExceptionQueuePage /></ProtectedRoute>} />
           <Route path="/case/:id" element={<ProtectedRoute><CaseDetailsPage /></ProtectedRoute>} />
           <Route path="/shop" element={<ProtectedRoute><DemoShopPage /></ProtectedRoute>} />
+          <Route path="/shop/return" element={<ProtectedRoute><ShopReturnPage /></ProtectedRoute>} />
+          <Route path="/shop/cancel" element={<ProtectedRoute><ShopCancelPage /></ProtectedRoute>} />
           <Route path="/actions" element={<ProtectedRoute><ActionsAuditPage /></ProtectedRoute>} />
           <Route path="/benchmark" element={<ProtectedRoute><BenchmarkPage /></ProtectedRoute>} />
           <Route path="/status" element={<ProtectedRoute><SandboxStatusPage /></ProtectedRoute>} />
