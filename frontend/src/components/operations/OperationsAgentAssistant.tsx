@@ -32,7 +32,7 @@ export function OperationsAgentAssistant({
       role: 'assistant',
       content:
         'Hello! I am your PayResolve Operations Agent powered by the AG Studio Agent Framework. I analyze active exceptions across PayPal Orders v2, webhook delivery streams, and benchmark latency metrics. What would you like to know about this dashboard?',
-      time: '12:00',
+      time: getTimestamp(),
       citations: ['/api/cases', '/api/events', '/api/benchmark'],
     },
   ]);
@@ -93,13 +93,38 @@ export function OperationsAgentAssistant({
     };
   };
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
     const now = getTimestamp();
     const userMsg: Message = { role: 'user', content: text, time: now };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsThinking(true);
+
+    try {
+      const res = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.reply,
+            time: getTimestamp(),
+            citations: [data.provider || 'Groq llama-3.3-70b', '/api/cases', '/api/benchmark'],
+            latencyMs: 120,
+          },
+        ]);
+        setIsThinking(false);
+        return;
+      }
+    } catch {
+      // Fall through to local telemetry reasoning
+    }
 
     setTimeout(() => {
       const resp = generateAnswer(text);

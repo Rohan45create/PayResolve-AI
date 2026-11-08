@@ -359,6 +359,73 @@ export const api = {
       }),
 
     getById: (id: string) => fetchApi<InvestigationResponseDto>(`/api/investigations/${id}`),
+
+    getLlmCalls: (caseId: string) =>
+      fetchApi<Array<{
+        id: number;
+        caseId: string;
+        provider: string;
+        model: string;
+        callType: string;
+        promptTokens: number | null;
+        completionTokens: number | null;
+        latencyMs: number;
+        status: string;
+        fallbackUsed: boolean;
+        fallbackReason: string | null;
+        createdAt: string;
+      }>>(`/api/cases/${caseId}/llm-calls`),
+
+    getRecentLlmCalls: () =>
+      fetchApi<Array<{
+        id: number;
+        caseId: string;
+        provider: string;
+        model: string;
+        callType: string;
+        promptTokens: number | null;
+        completionTokens: number | null;
+        latencyMs: number;
+        status: string;
+        fallbackUsed: boolean;
+        fallbackReason: string | null;
+        createdAt: string;
+      }>>('/api/llm-calls/recent'),
+  },
+
+  // --- Attachments & Multimodal Evidence ---
+  attachments: {
+    list: (caseId: string) =>
+      fetchApi<Array<{
+        id: string;
+        caseId: string;
+        filename: string;
+        contentType: string;
+        fileSize: number;
+        extractedData: string | null;
+        createdAt: string;
+      }>>(`/api/cases/${caseId}/attachments`),
+
+    upload: (caseId: string, file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return fetchApi<{ id: string; filename: string }>(`/api/cases/${caseId}/attachments`, {
+        method: 'POST',
+        body: fd,
+      });
+    },
+
+    analyze: (caseId: string, attachmentId: string) =>
+      fetchApi<{
+        attachmentId: string;
+        provider: string;
+        model: string;
+        fallbackUsed: boolean;
+        fallbackReason: string;
+        extractedData: string;
+      }>(`/api/cases/${caseId}/attachments/${attachmentId}/analyze`, {
+        method: 'POST',
+      }),
   },
 
   // --- Actions ---
@@ -438,10 +505,15 @@ export const api = {
         body: JSON.stringify(req),
       }),
 
-    checkout: (orderId: string) =>
-      fetchApi<CheckoutResponseDto>(`/api/shop/orders/${orderId}/checkout`, {
+    checkout: (orderId: string, returnUrl?: string, cancelUrl?: string) => {
+      const params = new URLSearchParams();
+      if (returnUrl) params.set('returnUrl', returnUrl);
+      if (cancelUrl) params.set('cancelUrl', cancelUrl);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return fetchApi<CheckoutResponseDto>(`/api/shop/orders/${orderId}/checkout${qs}`, {
         method: 'POST',
-      }),
+      });
+    },
 
     capture: (orderId: string) =>
       fetchApi<CaptureOrderResponseDto>(`/api/shop/orders/${orderId}/capture`, {
