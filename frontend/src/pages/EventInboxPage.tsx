@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '../components/AppLayout';
+import { GoogleIcon } from '../components/GoogleIcon';
 import { api, type WebhookEventRecord } from '../lib/api';
 import { toast } from '../lib/toast';
 import { TableSkeleton, ErrorState } from '../components/DataStates';
@@ -224,11 +225,11 @@ export default function EventInboxPage() {
               onClick={() => {
                 queryClient.invalidateQueries({ queryKey: ['events'] });
                 queryClient.invalidateQueries({ queryKey: ['events-stats'] });
-                toast.info('Event stream refreshed.');
+                toast.info('Event stream refreshed from server.');
               }}
               className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs"
             >
-              Sample data
+              Refresh stream
             </button>
             <button
               onClick={() => replayMutation.mutate()}
@@ -328,7 +329,23 @@ export default function EventInboxPage() {
                               : 'hover:bg-slate-50/50 dark:hover:bg-[#121b2b]'
                           }`}
                         >
-                          <td className="py-3.5 pr-3 font-medium text-slate-900 dark:text-white">{evt.eventId}</td>
+                          <td className="py-3.5 pr-3 font-medium text-slate-900 dark:text-white font-mono whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 group">
+                              <span className="truncate max-w-[130px]" title={evt.eventId}>{evt.eventId}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(evt.eventId);
+                                  toast.info(`Copied event ID: ${evt.eventId}`);
+                                }}
+                                title={`Copy event ID: ${evt.eventId}`}
+                                className="opacity-0 group-hover:opacity-100 hover:text-blue-500 text-slate-400 transition-opacity p-0.5 cursor-pointer"
+                              >
+                                <GoogleIcon name="content_copy" size={13} />
+                              </button>
+                            </div>
+                          </td>
                           <td className="py-3.5 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">{evt.type}</td>
                           <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{evt.resource}</td>
                           <td className="py-3.5 px-3">
@@ -337,7 +354,14 @@ export default function EventInboxPage() {
                             </span>
                           </td>
                           <td className="py-3.5 px-3">{statusBadge}</td>
-                          <td className="py-3.5 px-3 font-mono text-slate-500">{evt.tries}</td>
+                          <td className="py-3.5 px-3 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            <span>{evt.tries}</span>
+                            {((evt.raw as unknown as { deliveryCount?: number })?.deliveryCount ?? 1) > 1 && (
+                              <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-sans font-medium">
+                                delivered {(evt.raw as unknown as { deliveryCount?: number }).deliveryCount}x
+                              </span>
+                            )}
+                          </td>
                           <td className="py-3.5 pl-3 font-mono text-slate-500">{evt.at}</td>
                         </tr>
                       );
@@ -376,13 +400,38 @@ export default function EventInboxPage() {
               </div>
             </div>
 
-            {/* Raw JSON Box */}
+            {/* Raw JSON Box with Pretty-Print & Copy */}
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                Raw JSON payload
-              </span>
-              <div className="p-3 bg-slate-950 text-slate-300 font-mono text-xs rounded-xl overflow-x-auto max-h-56 border border-slate-800">
-                <pre>{selectedEvent.rawPayload}</pre>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Raw JSON payload
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    let formatted = selectedEvent.rawPayload;
+                    try {
+                      formatted = JSON.stringify(JSON.parse(selectedEvent.rawPayload), null, 2);
+                    } catch {}
+                    navigator.clipboard.writeText(formatted);
+                    toast.info('Raw JSON payload copied to clipboard');
+                  }}
+                  className="flex items-center space-x-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  <GoogleIcon name="content_copy" size={12} />
+                  <span>Copy JSON</span>
+                </button>
+              </div>
+              <div className="p-3 bg-slate-950 text-slate-300 font-mono text-xs rounded-xl overflow-x-auto max-h-64 border border-slate-800">
+                <pre className="whitespace-pre">
+                  {(() => {
+                    try {
+                      return JSON.stringify(JSON.parse(selectedEvent.rawPayload), null, 2);
+                    } catch {
+                      return selectedEvent.rawPayload;
+                    }
+                  })()}
+                </pre>
               </div>
             </div>
           </div>
