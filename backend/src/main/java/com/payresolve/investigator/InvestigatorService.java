@@ -153,7 +153,7 @@ public class InvestigatorService {
         investigatorTools.resetStepCounter(investigationId);
 
         InvestigationReport report = null;
-        String activeModel = (chatModel != null) ? modelName : "rule-based-fallback";
+        String activeModel = (chatModel != null) ? modelName : "rules";
         boolean degraded = false;
 
         try {
@@ -175,6 +175,10 @@ public class InvestigatorService {
                 report = generateRuleBasedReport(caseRecord);
             }
             degraded = true;
+        }
+
+        if (degraded) {
+            activeModel = "rules";
         }
 
         // Deterministic Verification Pass
@@ -580,7 +584,11 @@ public class InvestigatorService {
             return new InvestigationReport("CAUSE_NOT_DETERMINED", List.of(), List.of(), List.of(), null, true, "Empty report");
         }
         try {
-            return objectMapper.readValue(json, InvestigationReport.class);
+            tools.jackson.databind.JsonNode node = objectMapper.readTree(json);
+            if (node.isTextual()) {
+                return objectMapper.readValue(node.asText(), InvestigationReport.class);
+            }
+            return objectMapper.treeToValue(node, InvestigationReport.class);
         } catch (Exception e) {
             log.warn("Failed to parse report JSON: {}", e.getMessage());
             return new InvestigationReport("CAUSE_NOT_DETERMINED", List.of(), List.of(), List.of(), null, true, "Unparseable report JSON");

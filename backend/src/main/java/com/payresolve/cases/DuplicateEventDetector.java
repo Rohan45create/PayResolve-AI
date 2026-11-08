@@ -10,8 +10,8 @@ import java.util.*;
 
 /**
  * Detector for DUPLICATE_EVENT (P0):
- * Discrepancy occurs when the same webhook event is delivered more than once,
- * repeatedly attempted, or a business effect is executed multiple times.
+ * Discrepancy occurs when the same webhook event is delivered more than once (delivery_count > 1),
+ * while requiring that the business effect ran only once (idempotent deduplication).
  */
 @Component
 public class DuplicateEventDetector implements Detector {
@@ -36,11 +36,33 @@ public class DuplicateEventDetector implements Detector {
 
         // Check webhook events
         for (WebhookEvent event : snapshot.webhookEvents()) {
-            if (paypalOrderId == null && event.resourceId() != null) {
+            if (paypalOrderId == null && event.paypalOrderId() != null) {
+                paypalOrderId = event.paypalOrderId();
+            } else if (paypalOrderId == null && event.resourceId() != null) {
                 paypalOrderId = event.resourceId();
             }
 
-            // Check 1: Attempt count > 1
+            // Check 1: delivery_count > 1 (business effect must have run only once)
+            if (event.deliveryCount() > 1) {
+                boolean businessEffectOnlyOnce = snapshot.shopPayments().size() <= 1;
+                if (businessEffectOnlyOnce) {
+                    String summary = String.format(
+                        "Duplicate webhook delivery detected for event %s (delivered %d times); business effect executed once idempotently.",
+                        event.paypalEventId(), event.deliveryCount()
+                    );
+                    findings.add(DetectionFinding.of(
+                        CaseType.DUPLICATE_EVENT,
+                        CaseSeverity.MEDIUM,
+                        paypalOrderId != null ? paypalOrderId : event.paypalEventId(),
+                        shopOrderId,
+                        orderAmount,
+                        summary
+                    ));
+                    return findings;
+                }
+            }
+
+            // Check 2: Attempt count > 1
             if (event.attempts() > 1) {
                 String summary = String.format(
                     "Duplicate delivery or repeated attempt detected for webhook event %s (attempts: %d).",
@@ -54,10 +76,10 @@ public class DuplicateEventDetector implements Detector {
                     orderAmount,
                     summary
                 ));
-                return findings; // Found primary duplicate condition
+                return findings;
             }
 
-            // Check 2: Repeated event IDs in snapshot
+            // Check 3: Repeated event IDs in snapshot
             if (event.paypalEventId() != null && !seenEventIds.add(event.paypalEventId())) {
                 String summary = String.format(
                     "Duplicate webhook event ID %s received multiple times in event log.",
@@ -74,7 +96,7 @@ public class DuplicateEventDetector implements Detector {
                 return findings;
             }
 
-            // Check 3: Repeated events for the same resource and event type
+            // Check 4: Repeated events for the same resource and event type
             if (event.resourceId() != null && event.eventType() != null) {
                 String key = event.eventType() + "::" + event.resourceId();
                 int count = resourceTypeCounts.merge(key, 1, Integer::sum);
@@ -96,7 +118,7 @@ public class DuplicateEventDetector implements Detector {
             }
         }
 
-        // Check 4: Multiple payment records with the same PayPal capture ID
+        // Check 5: Multiple payment records with the same PayPal capture ID
         Set<String> seenCaptureIds = new HashSet<>();
         for (PaymentRecord payment : snapshot.shopPayments()) {
             if (payment.paypalCaptureId() != null && !seenCaptureIds.add(payment.paypalCaptureId())) {

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Verifies that all Flyway database migrations apply cleanly on an empty PostgreSQL database
- * and that all domain tables, constraints, and indexes are correctly initialized.
+ * and that all domain tables, constraints, sequences, and triggers are correctly initialized.
  */
 @Testcontainers(disabledWithoutDocker = true)
 class FlywayMigrationTest {
@@ -33,7 +33,7 @@ class FlywayMigrationTest {
             .withPassword("testpass");
 
     @Test
-    @DisplayName("Should apply V1 and V2 migrations on clean PostgreSQL and verify schema invariants")
+    @DisplayName("Should apply V1 to V5 migrations on clean PostgreSQL and verify schema invariants")
     void shouldApplyMigrationsOnCleanPostgres() throws Exception {
         // 1. Run Flyway migrations
         Flyway flyway = Flyway.configure()
@@ -44,12 +44,13 @@ class FlywayMigrationTest {
 
         MigrateResult result = flyway.migrate();
         assertThat(result.success).isTrue();
-        assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(4);
+        assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(5);
 
         // 2. Verify all expected tables exist in PostgreSQL information_schema
         Set<String> expectedTables = Set.of(
                 "webhook_events",
                 "shop_orders",
+                "shop_order_items",
                 "payments",
                 "refunds",
                 "shipments",
@@ -127,6 +128,42 @@ class FlywayMigrationTest {
                 // Duplicate insert must fail with unique constraint violation
                 assertThatThrownBy(psAction::executeUpdate)
                         .hasMessageContaining("duplicate key value violates unique constraint");
+            }
+        }
+
+        // 6. Verify case_number_seq generates PR-xxxx formatted values
+        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT 'PR-' || lpad(nextval('case_number_seq')::text, 4, '0')")) {
+            assertThat(rs.next()).isTrue();
+            String seqVal = rs.getString(1);
+            assertThat(seqVal).matches("^PR-\\d{4}$");
+        }
+
+        // 7. Verify audit_log immutability trigger forbids updates and deletes
+        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+            long auditId;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO audit_log (actor, action, subject_type, subject_id) VALUES (?, ?, ?, ?) RETURNING id")) {
+                ps.setString(1, "OPERATOR");
+                ps.setString(2, "APPROVE_ACTION");
+                ps.setString(3, "ACTION");
+                ps.setString(4, "1");
+                ResultSet rs = ps.executeQuery();
+                assertThat(rs.next()).isTrue();
+                auditId = rs.getLong(1);
+            }
+
+            try (PreparedStatement psUpdate = conn.prepareStatement("UPDATE audit_log SET action = 'TAMPERED' WHERE id = ?")) {
+                psUpdate.setLong(1, auditId);
+                assertThatThrownBy(psUpdate::executeUpdate)
+                        .hasMessageContaining("audit_log is append-only");
+            }
+
+            try (PreparedStatement psDelete = conn.prepareStatement("DELETE FROM audit_log WHERE id = ?")) {
+                psDelete.setLong(1, auditId);
+                assertThatThrownBy(psDelete::executeUpdate)
+                        .hasMessageContaining("audit_log is append-only");
             }
         }
     }

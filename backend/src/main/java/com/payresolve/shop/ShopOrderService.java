@@ -204,7 +204,58 @@ public class ShopOrderService {
             .update();
 
         log.info("Created shop order {} for total={} {} (customer={})", orderId, computedTotalMinor, orderCurrency, label);
+
+        // Persist cart items into shop_order_items
+        long itemsSumMinor = 0L;
+        for (OrderItemRequest item : items) {
+            Product product = findProductById(item.productId()).orElseThrow();
+            jdbcClient.sql("""
+                INSERT INTO shop_order_items (shop_order_id, product_id, quantity, unit_price_minor)
+                VALUES (:shopOrderId, :productId, :quantity, :unitPriceMinor)
+                """)
+                .param("shopOrderId", orderId)
+                .param("productId", product.id())
+                .param("quantity", item.quantity())
+                .param("unitPriceMinor", product.priceMinor())
+                .update();
+            itemsSumMinor += (long) item.quantity() * product.priceMinor();
+        }
+
+        // Verify that shop_orders.total_minor matches the sum of its items (unless the alter-order-total fault switch is active)
+        if (!faultSwitches.isAlterOrderTotal() && computedTotalMinor != itemsSumMinor) {
+            throw new IllegalStateException("Order total " + computedTotalMinor + " does not match item sum " + itemsSumMinor);
+        }
+
         return findOrderById(orderId).orElseThrow();
+    }
+
+    public List<ShopOrderItem> findOrderItems(String shopOrderId) {
+        if (shopOrderId == null || shopOrderId.isBlank()) {
+            return List.of();
+        }
+        return jdbcClient.sql("""
+            SELECT id, shop_order_id, product_id, quantity, unit_price_minor
+            FROM shop_order_items
+            WHERE shop_order_id = :shopOrderId
+            ORDER BY id ASC
+            """)
+            .param("shopOrderId", shopOrderId)
+            .query((rs, rowNum) -> new ShopOrderItem(
+                rs.getLong("id"),
+                rs.getString("shop_order_id"),
+                rs.getString("product_id"),
+                rs.getInt("quantity"),
+                rs.getLong("unit_price_minor")
+            ))
+            .list();
+    }
+
+    public boolean verifyOrderTotalMatchesItems(String shopOrderId) {
+        ShopOrder order = findOrderById(shopOrderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Shop order not found: " + shopOrderId));
+        List<ShopOrderItem> items = findOrderItems(shopOrderId);
+        long itemsSum = items.stream().mapToLong(i -> (long) i.quantity() * i.unitPriceMinor()).sum();
+        return order.totalMinor() == itemsSum;
     }
 
     @Transactional

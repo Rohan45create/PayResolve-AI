@@ -46,7 +46,7 @@ public class InvestigationStepRepository {
             INSERT INTO investigation_steps (
                 investigation_id, tool, args_json, result_digest, started_at, ms
             ) VALUES (
-                :investigationId, :tool, :argsJson, :resultDigest, :startedAt, :ms
+                :investigationId, :tool, CAST(:argsJson AS jsonb), :resultDigest, :startedAt, :ms
             )
             """;
 

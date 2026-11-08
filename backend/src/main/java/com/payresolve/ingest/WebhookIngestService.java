@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -42,7 +43,7 @@ public class WebhookIngestService {
     /**
      * Ingests an incoming raw webhook notification payload.
      * Fast path: persists event to durable inbox and returns 200.
-     * Duplicate event IDs return 200 without creating a new record.
+     * Duplicate event IDs increment delivery_count and update last_received_at, returning HTTP 200.
      * Unverified events are stored as verified=false and never processed.
      */
     @Transactional
@@ -52,6 +53,9 @@ public class WebhookIngestService {
         String paypalEventId = null;
         String eventType = "UNKNOWN";
         String resourceId = null;
+        Instant eventCreatedAt = null;
+        String customId = null;
+        String paypalOrderId = null;
         Map<String, Object> eventMap = null;
 
         try {
@@ -62,8 +66,38 @@ public class WebhookIngestService {
             if (root.hasNonNull("event_type")) {
                 eventType = root.get("event_type").asText();
             }
-            if (root.hasNonNull("resource") && root.get("resource").hasNonNull("id")) {
-                resourceId = root.get("resource").get("id").asText();
+            if (root.hasNonNull("create_time")) {
+                try {
+                    eventCreatedAt = Instant.parse(root.get("create_time").asText());
+                } catch (Exception ignored) {
+                }
+            }
+            if (root.hasNonNull("resource")) {
+                JsonNode res = root.get("resource");
+                if (res.hasNonNull("id")) {
+                    resourceId = res.get("id").asText();
+                }
+                if (res.hasNonNull("custom_id")) {
+                    customId = res.get("custom_id").asText();
+                } else if (res.hasNonNull("purchase_units") && res.get("purchase_units").isArray() && res.get("purchase_units").size() > 0) {
+                    JsonNode pu = res.get("purchase_units").get(0);
+                    if (pu.hasNonNull("custom_id")) {
+                        customId = pu.get("custom_id").asText();
+                    }
+                }
+
+                if (res.hasNonNull("supplementary_data")) {
+                    JsonNode supp = res.get("supplementary_data");
+                    if (supp.hasNonNull("related_ids") && supp.get("related_ids").hasNonNull("order_id")) {
+                        paypalOrderId = supp.get("related_ids").get("order_id").asText();
+                    }
+                }
+                if (paypalOrderId == null && res.hasNonNull("order_id")) {
+                    paypalOrderId = res.get("order_id").asText();
+                }
+                if (paypalOrderId == null && eventType != null && eventType.startsWith("CHECKOUT.ORDER")) {
+                    paypalOrderId = resourceId;
+                }
             }
             eventMap = objectMapper.readValue(rawBody, Map.class);
         } catch (Exception e) {
@@ -75,13 +109,6 @@ public class WebhookIngestService {
         if (faultSwitches.isDropWebhook()) {
             log.warn("Demo fault switch ACTIVE: Dropping incoming PayPal webhook (paypalEventId={})", paypalEventId);
             return IngestResult.dropped(paypalEventId);
-        }
-
-        // Idempotency Check: Duplicate paypal_event_id
-        if (paypalEventId != null && repository.findByPaypalEventId(paypalEventId).isPresent()) {
-            log.info("Duplicate PayPal webhook event received (paypalEventId={}). Returning 200 without inserting.",
-                paypalEventId);
-            return IngestResult.duplicate(paypalEventId);
         }
 
         // Serialize incoming headers for diagnostic audit
@@ -105,17 +132,28 @@ public class WebhookIngestService {
         }
 
         String status = verified ? "PENDING" : "UNVERIFIED";
-        Long id = repository.insert(
+
+        // Upsert event: increments delivery_count and sets last_received_at on conflict
+        WebhookEventRepository.WebhookUpsertResult upsert = repository.upsert(
             paypalEventId,
             eventType,
             resourceId,
             rawBody,
             headersJson,
             verified,
-            status
+            status,
+            eventCreatedAt,
+            customId,
+            paypalOrderId
         );
 
-        if (!verified) {
+        Long id = upsert.id();
+        int deliveryCount = upsert.deliveryCount();
+
+        if (deliveryCount > 1) {
+            log.info("Duplicate PayPal webhook event received (paypalEventId={}, deliveryCount={}). Incremented count and returning 200.",
+                paypalEventId, deliveryCount);
+        } else if (!verified) {
             log.warn("Stored UNVERIFIED webhook event (id={}, paypalEventId={}). Will never be processed.",
                 id, paypalEventId);
             repository.recordAttemptFailure(id, "PayPal signature verification failed", false);
@@ -135,6 +173,9 @@ public class WebhookIngestService {
             }
         }
 
+        if (deliveryCount > 1) {
+            return IngestResult.duplicate(id, paypalEventId, eventType, verified, status);
+        }
         return IngestResult.accepted(id, paypalEventId, eventType, verified, status);
     }
 }

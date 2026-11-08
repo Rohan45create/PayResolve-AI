@@ -45,7 +45,7 @@ public class CaseEvidenceRepository {
             INSERT INTO case_evidence (
                 id, case_id, kind, source, external_id, payload_json, observed_at
             ) VALUES (
-                :id, :caseId, :kind, :source, :externalId, :payloadJson, :observedAt
+                :id, :caseId, :kind, :source, :externalId, CAST(:payloadJson AS jsonb), :observedAt
             )
             """;
 

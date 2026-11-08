@@ -37,6 +37,11 @@ class DuplicateEventDetectorTest {
             4L, "EVT-SAME", "PAYMENT.CAPTURE.COMPLETED", "CAP-3", "{}", "{}", true, "PROCESSED", 1, t0, t0, null
         );
 
+        WebhookEvent deliveredTwiceEvent = new WebhookEvent(
+            5L, "EVT-DELIV-2", "PAYMENT.CAPTURE.COMPLETED", "CAP-DELIV-2", "{}", "{}", true, "PROCESSED", 1, 2, t0, t0, null
+        );
+        PaymentRecord singlePayment = new PaymentRecord("PAY-SINGLE", "ORD-DUP", "CAP-DELIV-2", 3200L, "USD", "COMPLETED", t0);
+
         PaymentRecord payA = new PaymentRecord("PAY-1", "ORD-DUP", "CAP-DUP", 3200L, "USD", "COMPLETED", t0);
         PaymentRecord payB = new PaymentRecord("PAY-2", "ORD-DUP", "CAP-DUP", 3200L, "USD", "COMPLETED", t0);
 
@@ -67,6 +72,15 @@ class DuplicateEventDetectorTest {
                     .build(),
                 1, CaseType.DUPLICATE_EVENT, CaseSeverity.MEDIUM),
 
+            // POSITIVE: delivery_count > 1 where shop order was marked paid once
+            Arguments.of("Positive: Event delivered twice and shop order marked paid once",
+                DetectionSnapshot.builder()
+                    .shopOrder(order)
+                    .addWebhookEvent(deliveredTwiceEvent)
+                    .addShopPayment(singlePayment)
+                    .build(),
+                1, CaseType.DUPLICATE_EVENT, CaseSeverity.MEDIUM),
+
             // NEGATIVE: Normal single event with attempts = 1
             Arguments.of("Negative: Single event, 1 attempt",
                 DetectionSnapshot.builder()
@@ -87,7 +101,7 @@ class DuplicateEventDetectorTest {
                 DetectionSnapshot.builder()
                     .shopOrder(order)
                     .addWebhookEvent(singleAttemptEvent)
-                    .addWebhookEvent(new WebhookEvent(5L, "EVT-5", "CHECKOUT.ORDER.APPROVED", "ORD-DUP", "{}", "{}", true, "PROCESSED", 1, t0, t0, null))
+                    .addWebhookEvent(new WebhookEvent(6L, "EVT-6", "CHECKOUT.ORDER.APPROVED", "ORD-DUP", "{}", "{}", true, "PROCESSED", 1, t0, t0, null))
                     .build(),
                 0, null, null)
         );

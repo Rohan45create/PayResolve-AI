@@ -60,7 +60,7 @@ public class InvestigationRepository {
             INSERT INTO investigations (
                 id, case_id, status, report_json, model, started_at, finished_at
             ) VALUES (
-                :id, :caseId, :status, :reportJson, :model, :startedAt, :finishedAt
+                :id, :caseId, :status, CAST(:reportJson AS jsonb), :model, :startedAt, :finishedAt
             )
             """;
 
@@ -84,7 +84,7 @@ public class InvestigationRepository {
         String sql = """
             UPDATE investigations
             SET status = :status,
-                report_json = :reportJson,
+                report_json = CAST(:reportJson AS jsonb),
                 finished_at = :finishedAt
             WHERE id = :id
             """;

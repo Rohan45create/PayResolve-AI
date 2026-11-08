@@ -20,6 +20,10 @@ public record IngestResult(
         return new IngestResult(null, paypalEventId, null, true, "DUPLICATE", true, false);
     }
 
+    public static IngestResult duplicate(Long id, String paypalEventId, String eventType, boolean verified, String status) {
+        return new IngestResult(id, paypalEventId, eventType, verified, status, true, false);
+    }
+
     public static IngestResult accepted(Long id, String paypalEventId, String eventType, boolean verified, String status) {
         return new IngestResult(id, paypalEventId, eventType, verified, status, false, false);
     }

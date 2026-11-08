@@ -110,7 +110,7 @@ public class ProposedActionRepository {
             INSERT INTO proposed_actions (
                 case_id, type, payload_json, idempotency_key, status, proposed_by, decided_by, decided_at, created_at
             ) VALUES (
-                :caseId, :type, :payloadJson, :idempotencyKey, :status, :proposedBy, :decidedBy, :decidedAt, :createdAt
+                :caseId, :type, CAST(:payloadJson AS jsonb), :idempotencyKey, :status, :proposedBy, :decidedBy, :decidedAt, :createdAt
             )
             """;
 

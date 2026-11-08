@@ -26,6 +26,9 @@ class CaseIntegrationTest {
     @Autowired
     private CaseService caseService;
 
+    @Autowired
+    private CaseRepository caseRepository;
+
     @Test
     @DisplayName("Should seed canonical demo cases and verify all 5 discrepancy types exist")
     void shouldSeedCanonicalCasesAndVerifyTypes() throws Exception {
@@ -179,5 +182,17 @@ class CaseIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.totalEvaluated", greaterThanOrEqualTo(0)))
             .andExpect(jsonPath("$.message", containsString("Detection complete")));
+    }
+
+    @Test
+    @DisplayName("Should generate case numbers following sequence PR-0001, PR-0002...")
+    void shouldGenerateCaseNumbersFromSequence() {
+        String id1 = caseRepository.nextCaseId();
+        String id2 = caseRepository.nextCaseId();
+        assertThat(id1).matches("^PR-\\d{4}$");
+        assertThat(id2).matches("^PR-\\d{4}$");
+        int num1 = Integer.parseInt(id1.substring(3));
+        int num2 = Integer.parseInt(id2.substring(3));
+        assertThat(num2).isEqualTo(num1 + 1);
     }
 }

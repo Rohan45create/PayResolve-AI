@@ -10,10 +10,33 @@ CREATE TABLE IF NOT EXISTS webhook_events (
     verified BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(50) NOT NULL DEFAULT 'RECEIVED',
     attempts INT NOT NULL DEFAULT 0,
+    delivery_count INT NOT NULL DEFAULT 1,
     received_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     processed_at TIMESTAMP WITH TIME ZONE,
+    last_received_at TIMESTAMP WITH TIME ZONE,
+    event_created_at TIMESTAMP WITH TIME ZONE,
+    custom_id VARCHAR(100),
+    paypal_order_id VARCHAR(100),
     last_error TEXT
 );
+
+CREATE TABLE IF NOT EXISTS products (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price_minor BIGINT NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('mug', 'Ceramic mug', 2400, 'USD', 'Handcrafted ceramic mug (12 oz)');
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('tote', 'Canvas tote', 3850, 'USD', 'Heavyweight 100% organic cotton canvas tote bag');
+
+MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
+VALUES ('notebook', 'Notebook set', 2200, 'USD', 'Pack of 3 dot-grid softcover pocket notebooks');
 
 CREATE TABLE IF NOT EXISTS shop_orders (
     id VARCHAR(100) PRIMARY KEY,
@@ -25,6 +48,16 @@ CREATE TABLE IF NOT EXISTS shop_orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS shop_order_items (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    shop_order_id VARCHAR(100) NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
+    product_id VARCHAR(50) NOT NULL REFERENCES products(id),
+    quantity INT NOT NULL CHECK (quantity > 0),
+    unit_price_minor BIGINT NOT NULL CHECK (unit_price_minor >= 0)
+);
+
+CREATE SEQUENCE IF NOT EXISTS case_number_seq START WITH 1;
 
 CREATE TABLE IF NOT EXISTS payments (
     id VARCHAR(100) PRIMARY KEY,
@@ -160,24 +193,6 @@ CREATE TABLE IF NOT EXISTS keepalive (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     pinged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE TABLE IF NOT EXISTS products (
-    id VARCHAR(50) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    price_minor BIGINT NOT NULL,
-    currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
-VALUES ('mug', 'Ceramic mug', 2400, 'USD', 'Handcrafted ceramic mug (12 oz)');
-
-MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
-VALUES ('tote', 'Canvas tote', 3850, 'USD', 'Heavyweight 100% organic cotton canvas tote bag');
-
-MERGE INTO products (id, name, price_minor, currency, description) KEY(id)
-VALUES ('notebook', 'Notebook set', 2200, 'USD', 'Pack of 3 dot-grid softcover pocket notebooks');
 
 CREATE TABLE IF NOT EXISTS demo_fault_switches (
     id VARCHAR(50) PRIMARY KEY,

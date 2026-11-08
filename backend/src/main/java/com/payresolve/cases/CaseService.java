@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service orchestrating case lifecycle management, persistence, retrieval, and demo seeding.
@@ -28,7 +27,6 @@ public class CaseService {
     private final CaseRepository caseRepository;
     private final ShopOrderService shopOrderService;
     private final Clock clock;
-    private final AtomicInteger dynamicIdSequence = new AtomicInteger(150);
 
     public CaseService(CaseRepository caseRepository, ShopOrderService shopOrderService, Clock clock) {
         this.caseRepository = caseRepository;
@@ -39,6 +37,7 @@ public class CaseService {
     /**
      * Upserts a case from a detector finding.
      * Enforces the invariant: Exactly one case per (type, paypalOrderId); reruns update rather than duplicate.
+     * For ORPHAN_CAPTURE or any case where paypal_order_id would be NULL, stores 'capture:' + captureId.
      *
      * @param finding discrepancy finding from pure detector
      * @return persisted or updated CaseRecord
@@ -47,7 +46,16 @@ public class CaseService {
     public CaseRecord upsertCase(DetectionFinding finding) {
         String paypalOrderId = finding.paypalOrderId();
         if (paypalOrderId == null || paypalOrderId.isBlank()) {
-            paypalOrderId = finding.shopOrderId() != null ? finding.shopOrderId() : "PP-UNKNOWN";
+            if (finding.type() == CaseType.ORPHAN_CAPTURE) {
+                String capId = finding.details().containsKey("captureId")
+                    ? String.valueOf(finding.details().get("captureId"))
+                    : "unknown";
+                paypalOrderId = "capture:" + capId;
+            } else if (finding.shopOrderId() != null) {
+                paypalOrderId = finding.shopOrderId();
+            } else {
+                paypalOrderId = "capture:unknown";
+            }
         }
 
         Optional<CaseRecord> existingOpt = caseRepository.findByTypeAndPaypalOrderId(finding.type(), paypalOrderId);
@@ -138,25 +146,24 @@ public class CaseService {
         caseRepository.updateStatus(id, newStatus, resolvedAt);
         log.info("Transitioned case {} status from {} to {}", id, existing.status(), newStatus);
 
-        CaseRecord updated = getCaseRecordById(id);
+        CaseRecord updated = caseRepository.findById(id).orElseThrow();
         return CaseDetailsDto.fromRecord(updated);
     }
 
     /**
-     * Seeds demo cases covering all 5 case types (PAID_NOT_MARKED, AMOUNT_MISMATCH,
-     * DUPLICATE_EVENT, REFUND_MISMATCH, ORPHAN_CAPTURE).
+     * Seeds the canonical demo cases for hackathon judge presentations.
+     * Preserves existing case ids PR-0142, PR-0141, PR-0140, PR-0138, PR-0137, PR-0135.
      */
     @Transactional
     public List<CaseDto> seedDemoCases() {
-        log.info("Seeding canonical demo cases matching frontend exception queue");
         Instant now = clock.instant();
 
-        // Ensure prerequisite shop orders exist so foreign keys resolve cleanly
-        ensurePrerequisiteShopOrder("ORD-10482", "PP-10482", Money.of(8450, "USD"), "AWAITING_CONFIRMATION", "Sarah Jenkins");
-        ensurePrerequisiteShopOrder("ORD-10479", "PP-10479", Money.of(7950, "USD"), "PAID", "Michael Brown");
-        ensurePrerequisiteShopOrder("ORD-10477", "PP-10477", Money.of(3200, "USD"), "PAID", "Emma Davis");
-        ensurePrerequisiteShopOrder("ORD-10470", "PP-10470", Money.of(1800, "USD"), "PAID", "Lucas Miller");
-        ensurePrerequisiteShopOrder("ORD-10466", "PP-10466", Money.of(5620, "USD"), "PAID", "Olivia Wilson");
+        ensurePrerequisiteShopOrder("ORD-10482", "PP-10482", Money.parse("84.50", "USD"), "AWAITING_CONFIRMATION", "Sarah Connor");
+        ensurePrerequisiteShopOrder("ORD-10481", "PP-10481", Money.parse("24.00", "USD"), "AWAITING_CONFIRMATION", "David Miller");
+        ensurePrerequisiteShopOrder("ORD-10479", "PP-10479", Money.parse("34.00", "USD"), "PAID", "Altered Buyer");
+        ensurePrerequisiteShopOrder("ORD-10477", "PP-10477", Money.parse("12.00", "USD"), "PAID", "Duplicate Buyer");
+        ensurePrerequisiteShopOrder("ORD-10470", "PP-10470", Money.parse("38.50", "USD"), "PAID", "Charlie Refund");
+        ensurePrerequisiteShopOrder("ORD-10466", "PP-10466", Money.parse("56.20", "USD"), "PAID", "Frank Reconciled");
 
         List<CaseRecord> seedSpecs = List.of(
             new CaseRecord(
@@ -168,38 +175,38 @@ public class CaseService {
                 "ORD-10482",
                 8450L,
                 "USD",
-                now.minusSeconds(240), // 4 min ago
-                now.minusSeconds(240),
+                now.minusSeconds(120), // 2 min ago
+                now.minusSeconds(120),
                 null,
-                "Customer says paid. PayPal capture completed but merchant order ORD-10482 remains AWAITING_CONFIRMATION."
+                "Payment captured on PayPal ($84.50) but shop order ORD-10482 remains AWAITING_CONFIRMATION. Webhook handler dropped or failed."
             ),
             new CaseRecord(
                 "PR-0141",
                 CaseType.AMOUNT_MISMATCH,
-                CaseStatus.INVESTIGATING,
+                CaseStatus.OPEN,
                 CaseSeverity.HIGH,
-                "PP-10479",
-                "ORD-10479",
-                8450L,
+                "PP-10481",
+                "ORD-10481",
+                2400L,
                 "USD",
-                now.minusSeconds(720), // 12 min ago
-                now.minusSeconds(720),
+                now.minusSeconds(900), // 15 min ago
+                now.minusSeconds(900),
                 null,
-                "Captured amount mismatch: shop order total is $79.50, but PayPal captured $84.50 ($5.00 discrepancy)."
+                "PayPal capture CAP-10481 ($24.00) completed. Shop order ORD-10481 not transitioned to PAID."
             ),
             new CaseRecord(
                 "PR-0140",
                 CaseType.DUPLICATE_EVENT,
-                CaseStatus.ACTION_PROPOSED,
+                CaseStatus.OPEN,
                 CaseSeverity.MEDIUM,
                 "PP-10477",
                 "ORD-10477",
-                3200L,
+                1200L,
                 "USD",
-                now.minusSeconds(1260), // 21 min ago
-                now.minusSeconds(1260),
+                now.minusSeconds(1800), // 30 min ago
+                now.minusSeconds(1800),
                 null,
-                "Duplicate delivery detected: webhook event WH-EVT-DUP-40 was delivered 2 times for order ORD-10477."
+                "Duplicate delivery detected for webhook event WH-EVT-10477 (delivered 2 times). Business effect executed once idempotently."
             ),
             new CaseRecord(
                 "PR-0138",
@@ -208,24 +215,24 @@ public class CaseService {
                 CaseSeverity.MEDIUM,
                 "PP-10470",
                 "ORD-10470",
-                1800L,
+                3850L,
                 "USD",
-                now.minusSeconds(2280), // 38 min ago
-                now.minusSeconds(2280),
+                now.minusSeconds(3600), // 1 h ago
+                now.minusSeconds(3600),
                 null,
-                "PayPal shows refund REF-1800, but merchant shop has no record of refund for order ORD-10470."
+                "PayPal refund REF-10470 ($38.50) has no matching shop refund record."
             ),
             new CaseRecord(
                 "PR-0137",
                 CaseType.ORPHAN_CAPTURE,
                 CaseStatus.OPEN,
                 CaseSeverity.MEDIUM,
-                "CAP-ORPHAN-0137",
+                "capture:CAP-ORPHAN-0137",
                 null,
                 12000L,
                 "USD",
-                now.minusSeconds(3600), // 1 h ago
-                now.minusSeconds(3600),
+                now.minusSeconds(14400), // 4 h ago
+                now.minusSeconds(14400),
                 null,
                 "Orphan capture: PayPal capture CAP-ORPHAN-0137 ($120.00) has no matching merchant shop order."
             ),
@@ -265,7 +272,7 @@ public class CaseService {
         }
     }
 
-    private synchronized String generateNextCaseId() {
-        return String.format("PR-%04d", dynamicIdSequence.getAndIncrement());
+    private String generateNextCaseId() {
+        return caseRepository.nextCaseId();
     }
 }

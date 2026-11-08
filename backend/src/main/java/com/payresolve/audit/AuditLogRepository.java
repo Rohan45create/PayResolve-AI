@@ -32,7 +32,7 @@ public class AuditLogRepository {
             INSERT INTO audit_log (
                 at, actor, action, subject_type, subject_id, details_json
             ) VALUES (
-                :at, :actor, :action, :subjectType, :subjectId, :detailsJson
+                :at, :actor, :action, :subjectType, :subjectId, CAST(:detailsJson AS jsonb)
             )
             """;
 

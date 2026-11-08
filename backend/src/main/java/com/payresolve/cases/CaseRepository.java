@@ -30,6 +30,18 @@ public class CaseRepository {
         this.clock = clock;
     }
 
+    public String nextCaseId() {
+        try {
+            return jdbcClient.sql("SELECT 'PR-' || lpad(nextval('case_number_seq')::text, 4, '0')")
+                .query(String.class)
+                .single();
+        } catch (Exception e) {
+            return jdbcClient.sql("SELECT 'PR-' || lpad(CAST(nextval('case_number_seq') AS VARCHAR), 4, '0')")
+                .query(String.class)
+                .single();
+        }
+    }
+
     public Optional<CaseRecord> findById(String id) {
         String sql = """
             SELECT id, type, status, severity, paypal_order_id, shop_order_id,

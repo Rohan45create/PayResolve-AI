@@ -176,11 +176,14 @@ class WebhookIngestIntegrationTest {
                     .andExpect(status().isOk());
         }
 
-        // Exactly 1 webhook event row exists (duplicate event IDs insert nothing)
+        // Exactly 1 webhook event row exists (duplicate event IDs increment delivery_count)
         Integer eventCount = jdbcClient.sql("SELECT COUNT(*) FROM webhook_events WHERE paypal_event_id = 'WH-EVT-REPLAY'")
                 .query(Integer.class)
                 .single();
         assertThat(eventCount).isEqualTo(1);
+
+        WebhookEvent stored = repository.findByPaypalEventId("WH-EVT-REPLAY").orElseThrow();
+        assertThat(stored.deliveryCount()).isEqualTo(10);
 
         // Process with worker 10 times
         for (int i = 0; i < 10; i++) {

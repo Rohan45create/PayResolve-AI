@@ -20,6 +20,7 @@ public record EventInboxItemDto(
     String signature, // "Verified" | "Unverified"
     String status,    // "Processed" | "Failed" | "Duplicate" | "Received"
     int tries,
+    int deliveryCount,
     String at,
     Instant receivedAt,
     Instant processedAt,
@@ -85,6 +86,7 @@ public record EventInboxItemDto(
             sig,
             statusDisplay,
             event.attempts(),
+            event.deliveryCount(),
             atFormatted,
             event.receivedAt(),
             event.processedAt(),

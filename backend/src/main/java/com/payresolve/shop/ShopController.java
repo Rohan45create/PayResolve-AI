@@ -10,6 +10,7 @@ import com.payresolve.shop.dto.RefundResponseDto;
 import com.payresolve.shop.dto.ShipmentRequestDto;
 import com.payresolve.shop.dto.ShipmentResponseDto;
 import com.payresolve.shop.dto.ShopOrderDto;
+import com.payresolve.shop.dto.ShopOrderItemDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -60,7 +61,12 @@ public class ShopController {
             @RequestParam(defaultValue = "0") int offset
     ) {
         return shopOrderService.findAllOrders(limit, offset).stream()
-                .map(ShopOrderDto::from)
+                .map(order -> {
+                    List<ShopOrderItemDto> items = shopOrderService.findOrderItems(order.id()).stream()
+                            .map(ShopOrderItemDto::from)
+                            .toList();
+                    return ShopOrderDto.from(order, items);
+                })
                 .toList();
     }
 
@@ -69,7 +75,10 @@ public class ShopController {
     public ShopOrderDto getOrderById(@PathVariable String id) {
         ShopOrder order = shopOrderService.findOrderById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Shop order not found: " + id));
-        return ShopOrderDto.from(order);
+        List<ShopOrderItemDto> items = shopOrderService.findOrderItems(order.id()).stream()
+                .map(ShopOrderItemDto::from)
+                .toList();
+        return ShopOrderDto.from(order, items);
     }
 
     @PostMapping("/orders")
@@ -80,7 +89,10 @@ public class ShopController {
                 request.customerLabel(),
                 request.currency()
         );
-        return ResponseEntity.ok(ShopOrderDto.from(order));
+        List<ShopOrderItemDto> items = shopOrderService.findOrderItems(order.id()).stream()
+                .map(ShopOrderItemDto::from)
+                .toList();
+        return ResponseEntity.ok(ShopOrderDto.from(order, items));
     }
 
     @PostMapping("/orders/{id}/checkout")

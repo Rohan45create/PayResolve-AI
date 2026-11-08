@@ -13,6 +13,7 @@ import java.util.List;
  * Detector for ORPHAN_CAPTURE (P1):
  * Discrepancy occurs when a PayPal capture completes successfully, but
  * no matching merchant shop order exists in the system (missing or unmapped custom_id).
+ * Stores 'capture:' + captureId in paypal_order_id column for deduplication.
  */
 @Component
 public class OrphanCaptureDetector implements Detector {
@@ -40,7 +41,7 @@ public class OrphanCaptureDetector implements Detector {
                     ? Money.parse(capture.amount().value(), capture.amount().currencyCode())
                     : null;
                 String captureId = capture.id() != null ? capture.id() : "CAP-ORPHAN";
-                String paypalOrderId = snapshot.targetId() != null ? snapshot.targetId() : captureId;
+                String dedupeKey = "capture:" + captureId;
 
                 String summary = String.format(
                     "Orphan capture: PayPal capture %s (%s) has no matching merchant shop order.",
@@ -50,7 +51,7 @@ public class OrphanCaptureDetector implements Detector {
                 findings.add(DetectionFinding.of(
                     CaseType.ORPHAN_CAPTURE,
                     CaseSeverity.MEDIUM,
-                    paypalOrderId,
+                    dedupeKey,
                     null,
                     captureAmount,
                     captureAmount,
@@ -64,7 +65,7 @@ public class OrphanCaptureDetector implements Detector {
         for (WebhookEvent event : snapshot.webhookEvents()) {
             if (event.verified() && "PAYMENT.CAPTURE.COMPLETED".equalsIgnoreCase(event.eventType())) {
                 String captureId = event.resourceId() != null ? event.resourceId() : "CAP-ORPHAN";
-                String paypalOrderId = snapshot.targetId() != null ? snapshot.targetId() : captureId;
+                String dedupeKey = "capture:" + captureId;
 
                 String summary = String.format(
                     "Orphan capture: Webhook confirms capture %s completed, but no merchant shop order exists.",
@@ -74,7 +75,7 @@ public class OrphanCaptureDetector implements Detector {
                 findings.add(DetectionFinding.of(
                     CaseType.ORPHAN_CAPTURE,
                     CaseSeverity.MEDIUM,
-                    paypalOrderId,
+                    dedupeKey,
                     null,
                     null,
                     null,

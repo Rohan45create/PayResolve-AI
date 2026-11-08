@@ -61,6 +61,7 @@ class ShopIntegrationTest {
         jdbcClient.sql("DELETE FROM shipments").update();
         jdbcClient.sql("DELETE FROM refunds").update();
         jdbcClient.sql("DELETE FROM payments").update();
+        jdbcClient.sql("DELETE FROM shop_order_items").update();
         jdbcClient.sql("DELETE FROM shop_orders").update();
     }
 
@@ -79,7 +80,7 @@ class ShopIntegrationTest {
     }
 
     @Test
-    @DisplayName("2. Order creation: Creates order in PENDING status with correctly calculated minor units total")
+    @DisplayName("2. Order creation: Creates order in PENDING status with correctly calculated minor units total and persists line items")
     void shouldCreateOrderFromCart() throws Exception {
         CreateShopOrderRequest request = new CreateShopOrderRequest(
                 List.of(
@@ -97,12 +98,19 @@ class ShopIntegrationTest {
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.totalMinor").value(6250)) // $24.00 + $38.50 = $62.50
                 .andExpect(jsonPath("$.currency").value("USD"))
-                .andExpect(jsonPath("$.customerLabel").value("Alice Tester"));
+                .andExpect(jsonPath("$.customerLabel").value("Alice Tester"))
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[?(@.productId == 'mug')].quantity").value(1))
+                .andExpect(jsonPath("$.items[?(@.productId == 'tote')].quantity").value(1));
 
         List<ShopOrder> orders = shopOrderService.findAllOrders(10, 0);
         assertThat(orders).hasSize(1);
         assertThat(orders.get(0).status()).isEqualTo("PENDING");
         assertThat(orders.get(0).totalMinor()).isEqualTo(6250L);
+
+        List<ShopOrderItem> persistedItems = shopOrderService.findOrderItems(orders.get(0).id());
+        assertThat(persistedItems).hasSize(2);
+        assertThat(shopOrderService.verifyOrderTotalMatchesItems(orders.get(0).id())).isTrue();
     }
 
     @Test
@@ -128,6 +136,7 @@ class ShopIntegrationTest {
 
         mockMvc.perform(post("/api/shop/orders/" + order.id() + "/checkout"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shopOrderId").value(order.id()))
                 .andExpect(jsonPath("$.paypalOrderId").value("PP-ORD-999"))
                 .andExpect(jsonPath("$.approveUrl").value("https://www.sandbox.paypal.com/checkoutnow?token=PP-ORD-999"));
 

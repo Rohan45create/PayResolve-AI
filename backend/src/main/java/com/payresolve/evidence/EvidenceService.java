@@ -219,7 +219,8 @@ public class EvidenceService {
                         "eventType", event.eventType(),
                         "verified", event.verified(),
                         "status", event.status(),
-                        "attempts", event.attempts()
+                        "attempts", event.attempts(),
+                        "deliveryCount", event.deliveryCount()
                     ),
                     event.receivedAt() != null ? event.receivedAt() : baseTime.minusSeconds(40)
                 ));
@@ -236,7 +237,8 @@ public class EvidenceService {
                     "eventType", "PAYMENT.CAPTURE.COMPLETED",
                     "verified", true,
                     "status", "PROCESSED",
-                    "attempts", caseRecord.type() == CaseType.DUPLICATE_EVENT ? 2 : 1
+                    "attempts", caseRecord.type() == CaseType.DUPLICATE_EVENT ? 2 : 1,
+                    "deliveryCount", caseRecord.type() == CaseType.DUPLICATE_EVENT ? 2 : 1
                 ),
                 baseTime.minusSeconds(45)
             ));
@@ -291,8 +293,9 @@ public class EvidenceService {
                 }
                 case WEBHOOK_EVENT -> {
                     webhookNodeId = nodeId;
-                    int attempts = meta.get("attempts") instanceof Number n ? n.intValue() : 1;
-                    String statusLabel = attempts > 1 ? "delivered twice" : "delivered";
+                    int deliveryCount = meta.get("deliveryCount") instanceof Number n ? n.intValue() :
+                                        (meta.get("attempts") instanceof Number a ? a.intValue() : 1);
+                    String statusLabel = deliveryCount > 1 ? ("delivered " + deliveryCount + " times") : "delivered";
                     nodes.add(EvidenceGraphNodeDto.of(
                         nodeId, "Webhook", item.kind().name(), item.source().name(),
                         item.externalId(), statusLabel, item.observedAt(), meta
@@ -519,16 +522,17 @@ public class EvidenceService {
                     ));
                 }
                 case WEBHOOK_EVENT -> {
-                    int attempts = meta.get("attempts") instanceof Number n ? n.intValue() : 1;
-                    boolean isDuplicate = attempts > 1 || caseRecord.type() == CaseType.DUPLICATE_EVENT;
+                    int deliveryCount = meta.get("deliveryCount") instanceof Number n ? n.intValue() :
+                                        (meta.get("attempts") instanceof Number a ? a.intValue() : 1);
+                    boolean isDuplicate = deliveryCount > 1 || caseRecord.type() == CaseType.DUPLICATE_EVENT;
                     timeline.add(EvidenceTimelineItemDto.of(
                         "tl-webhook-" + item.externalId(),
                         item.observedAt(),
                         "Webhook",
                         item.source().name(),
                         "WEBHOOK_DELIVERED",
-                        isDuplicate ? "Webhook re-delivered" : "Webhook delivered",
-                        isDuplicate ? "Delivered again, duplicate delivery detected" : "Webhook event " + meta.get("eventType") + " received and verified",
+                        isDuplicate ? ("Webhook delivered (" + deliveryCount + " times)") : "Webhook delivered",
+                        isDuplicate ? ("Delivered " + deliveryCount + " times, duplicate delivery detected") : "Webhook event " + meta.get("eventType") + " received and verified",
                         isDuplicate,
                         item.externalId()
                     ));

@@ -107,7 +107,7 @@ public class BenchmarkService {
                 INSERT INTO benchmark_runs (
                     id, run_at, total_cases, passed_cases, precision_pct, recall_pct, avg_duration_ms, results_json
                 ) VALUES (
-                    :id, :runAt, :total, :passed, :precision, :recall, :duration, :json
+                    :id, :runAt, :total, :passed, :precision, :recall, :duration, CAST(:json AS jsonb)
                 )
                 """)
                 .param("id", runId)
