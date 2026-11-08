@@ -121,7 +121,9 @@ export default function ActionsAuditPage() {
     if (!timestamp) return '--:--';
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      const dateStr = date.toISOString().slice(0, 10);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      return `${dateStr} ${timeStr}`;
     } catch {
       return timestamp;
     }
@@ -148,9 +150,10 @@ export default function ActionsAuditPage() {
             <button
               onClick={() => seedMutation.mutate()}
               disabled={seedMutation.isPending}
+              title="Demo helper: populate canonical exception scenarios & pending proposals"
               className="px-4 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer shadow-2xs transition-colors"
             >
-              {seedMutation.isPending ? 'Loading...' : 'Sample data'}
+              {seedMutation.isPending ? 'Seeding...' : 'Demo helper'}
             </button>
           </div>
         </div>
