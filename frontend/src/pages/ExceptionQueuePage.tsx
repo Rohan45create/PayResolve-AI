@@ -7,6 +7,8 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 import { AppLayout } from '../components/AppLayout';
+import { GoogleIcon } from '../components/GoogleIcon';
+import { CountUp } from '../components/CountUp';
 import { api, type CaseRecord } from '../lib/api';
 import { toast } from '../lib/toast';
 import { useTheme } from '../lib/theme';
@@ -25,12 +27,15 @@ interface GridCaseRow {
   raw: CaseRecord;
 }
 
-function calculateAge(detectedAt: string): string {
+function calculateAge(detectedAt?: string): string {
+  if (!detectedAt) return '1 min';
   const diffMs = Date.now() - new Date(detectedAt).getTime();
   const mins = Math.max(1, Math.floor(diffMs / 60000));
   if (mins < 60) return `${mins} min`;
   const hours = Math.floor(mins / 60);
-  return `${hours} h`;
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `${days} d`;
 }
 
 function formatCaseType(type: string): string {
@@ -113,21 +118,9 @@ export default function ExceptionQueuePage() {
     },
   });
 
-  // Map API records to grid rows
+  // Map API records to grid rows (real rows only, no mock fallback)
   const rowData: GridCaseRow[] = useMemo(() => {
     const rawList = pagedData?.content || [];
-    if (rawList.length === 0 && !casesLoading) {
-      // Fallback default canonical list matching exception queue PNG if table is currently empty
-      return [
-        { id: 'PR-0142', type: 'Paid, not marked', order: '#10482', amount: '$84.50', severity: 'High', age: '4 min', status: 'Open', raw: {} as CaseRecord },
-        { id: 'PR-0141', type: 'Amount mismatch', order: '#10479', amount: '$84.50 vs $79.50', severity: 'High', age: '12 min', status: 'Investigating', raw: {} as CaseRecord },
-        { id: 'PR-0140', type: 'Duplicate event', order: '#10477', amount: '$32.00', severity: 'Medium', age: '21 min', status: 'Proposed', raw: {} as CaseRecord },
-        { id: 'PR-0138', type: 'Refund mismatch', order: '#10470', amount: '$18.00', severity: 'Medium', age: '38 min', status: 'Open', raw: {} as CaseRecord },
-        { id: 'PR-0137', type: 'Orphan capture', order: '#n/a', amount: '$120.00', severity: 'Medium', age: '1 h', status: 'Open', raw: {} as CaseRecord },
-        { id: 'PR-0135', type: 'Paid, not marked', order: '#10466', amount: '$56.20', severity: 'Low', age: '2 h', status: 'Resolved', raw: {} as CaseRecord },
-      ];
-    }
-
     return rawList.map((c) => {
       const orderNum = c.order || '#n/a';
       const severity = c.severity === 'HIGH' || c.severity === 'High' ? 'High' : c.severity === 'MEDIUM' || c.severity === 'Medium' ? 'Medium' : 'Low';
@@ -151,7 +144,7 @@ export default function ExceptionQueuePage() {
         raw: c,
       };
     });
-  }, [pagedData, casesLoading]);
+  }, [pagedData]);
 
   // Client-side filter matching search and pills
   const filteredRows = useMemo(() => {
@@ -194,8 +187,31 @@ export default function ExceptionQueuePage() {
     {
       field: 'order',
       headerName: 'Order',
-      width: 120,
-      cellClass: 'font-mono text-slate-600 dark:text-slate-400',
+      width: 170,
+      cellRenderer: (params: ICellRendererParams<GridCaseRow>) => {
+        const val = params.value || '#n/a';
+        if (val.startsWith('capture:')) {
+          const capId = val.replace('capture:', '');
+          return (
+            <div className="flex items-center gap-1.5 group font-mono text-xs text-slate-600 dark:text-slate-400">
+              <span title={val} className="truncate max-w-[105px]">{val}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(capId);
+                  toast.info(`Copied: ${capId}`);
+                }}
+                title={`Copy full capture ID: ${capId}`}
+                className="opacity-0 group-hover:opacity-100 hover:text-blue-500 text-slate-400 transition-opacity p-0.5 cursor-pointer"
+              >
+                <GoogleIcon name="content_copy" size={13} />
+              </button>
+            </div>
+          );
+        }
+        return <span className="font-mono text-slate-600 dark:text-slate-400">{val}</span>;
+      },
     },
     {
       field: 'amount',
@@ -223,7 +239,11 @@ export default function ExceptionQueuePage() {
             </span>
           );
         }
-        return <span className="text-slate-500 dark:text-slate-400 text-xs">Low</span>;
+        return (
+          <span className="px-3 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
+            Low
+          </span>
+        );
       },
     },
     {
@@ -329,25 +349,28 @@ export default function ExceptionQueuePage() {
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Open cases</div>
             <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
-              {statsData ? statsData.openCount : 12}
+              <CountUp value={statsData?.openCount ?? filteredRows.filter(r => r.status === 'Open').length} />
             </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Awaiting approval</div>
             <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
-              {statsData ? statsData.awaitingApprovalCount : 3}
+              <CountUp value={statsData?.awaitingApprovalCount ?? filteredRows.filter(r => r.status === 'Proposed').length} />
             </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Duplicates blocked today</div>
             <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
-              {statsData ? statsData.duplicatesBlockedToday : 7}
+              <CountUp value={statsData?.duplicatesBlockedToday ?? 7} />
             </div>
           </div>
           <div className="bg-white dark:bg-[#0e1522] p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs space-y-2">
             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">Oldest open case</div>
             <div className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
-              {statsData && statsData.oldestOpenMinutes ? `${statsData.oldestOpenMinutes} min` : '38 min'}
+              <CountUp
+                value={statsData?.oldestOpenMinutes != null && statsData.oldestOpenMinutes > 0 ? statsData.oldestOpenMinutes : 38}
+                suffix=" min"
+              />
             </div>
           </div>
         </div>
@@ -458,6 +481,17 @@ export default function ExceptionQueuePage() {
                     }
                   }}
                 />
+              </div>
+
+              {/* Pagination & Status Footer */}
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 px-1 border-t border-slate-100 dark:border-slate-800/60">
+                <div>
+                  Showing <span className="font-semibold text-slate-900 dark:text-white">{filteredRows.length}</span> of{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">{pagedData?.totalElements ?? filteredRows.length}</span> cases
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Real-time detection over PayPal Orders v2 & Webhook log
+                </div>
               </div>
             </div>
           )}
