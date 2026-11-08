@@ -59,6 +59,7 @@ public class InvestigatorService {
     private final InvestigationVerifier verifier;
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final com.payresolve.ai.LlmRouter llmRouter;
 
     @Autowired(required = false)
     private ChatModel chatModel;
@@ -75,6 +76,35 @@ public class InvestigatorService {
     private String systemPromptText;
     private String userPromptTemplate;
 
+    @Autowired
+    public InvestigatorService(
+        CaseService caseService,
+        EvidenceService evidenceService,
+        CaseEvidenceRepository caseEvidenceRepository,
+        ShopOrderService shopOrderService,
+        WebhookEventRepository webhookEventRepository,
+        InvestigationRepository investigationRepository,
+        InvestigationStepRepository stepRepository,
+        InvestigatorTools investigatorTools,
+        InvestigationVerifier verifier,
+        Clock clock,
+        ObjectMapper objectMapper,
+        @Autowired(required = false) com.payresolve.ai.LlmRouter llmRouter
+    ) {
+        this.caseService = caseService;
+        this.evidenceService = evidenceService;
+        this.caseEvidenceRepository = caseEvidenceRepository;
+        this.shopOrderService = shopOrderService;
+        this.webhookEventRepository = webhookEventRepository;
+        this.investigationRepository = investigationRepository;
+        this.stepRepository = stepRepository;
+        this.investigatorTools = investigatorTools;
+        this.verifier = verifier;
+        this.clock = clock;
+        this.objectMapper = objectMapper;
+        this.llmRouter = llmRouter;
+    }
+
     public InvestigatorService(
         CaseService caseService,
         EvidenceService evidenceService,
@@ -88,17 +118,20 @@ public class InvestigatorService {
         Clock clock,
         ObjectMapper objectMapper
     ) {
-        this.caseService = caseService;
-        this.evidenceService = evidenceService;
-        this.caseEvidenceRepository = caseEvidenceRepository;
-        this.shopOrderService = shopOrderService;
-        this.webhookEventRepository = webhookEventRepository;
-        this.investigationRepository = investigationRepository;
-        this.stepRepository = stepRepository;
-        this.investigatorTools = investigatorTools;
-        this.verifier = verifier;
-        this.clock = clock;
-        this.objectMapper = objectMapper;
+        this(
+            caseService,
+            evidenceService,
+            caseEvidenceRepository,
+            shopOrderService,
+            webhookEventRepository,
+            investigationRepository,
+            stepRepository,
+            investigatorTools,
+            verifier,
+            clock,
+            objectMapper,
+            null
+        );
     }
 
     @PostConstruct
@@ -152,13 +185,39 @@ public class InvestigatorService {
         InvestigationContext.setCurrentInvestigationId(investigationId);
         investigatorTools.resetStepCounter(investigationId);
 
+        String snapshotHash = com.payresolve.ai.LlmRouter.computeSnapshotHash(
+            caseId + ":" + caseRecord.type() + ":" + caseRecord.status() + ":" + caseRecord.amountMinor() + ":" + caseRecord.summary()
+        );
+
         InvestigationReport report = null;
-        String activeModel = (chatModel != null) ? modelName : "rules";
+        String activeModel = "rules";
         boolean degraded = false;
 
         try {
-            if (chatModel != null) {
+            if (llmRouter != null) {
+                String prompt = buildUserPrompt(caseRecord);
+                com.payresolve.ai.LlmResponse llmResp = llmRouter.routeTextInvestigation(
+                    caseId,
+                    systemPromptText,
+                    prompt,
+                    snapshotHash,
+                    false
+                );
+
+                if (llmResp != null && llmResp.content() != null && !llmResp.content().isBlank()) {
+                    try {
+                        report = parseReport(llmResp.content());
+                        activeModel = llmResp.provider() + " (" + llmResp.model() + ")";
+                        degraded = llmResp.fallbackUsed() && "rule_fallback".equalsIgnoreCase(llmResp.provider());
+                    } catch (Exception parseEx) {
+                        log.warn("Failed to parse LLM response for case {}: {}", caseId, parseEx.getMessage());
+                    }
+                } else if (llmResp != null && llmResp.fallbackUsed()) {
+                    degraded = true;
+                }
+            } else if (chatModel != null) {
                 report = runLlmInvestigationWithTimeout(caseRecord, investigationId, 20);
+                activeModel = modelName;
             }
         } catch (Exception e) {
             log.warn("LLM investigation failed or timed out for case {}: {}. Falling back to cached / rule-based findings.",
@@ -177,7 +236,7 @@ public class InvestigatorService {
             degraded = true;
         }
 
-        if (degraded) {
+        if (degraded && (activeModel == null || "rules".equals(activeModel))) {
             activeModel = "rules";
         }
 
