@@ -34,8 +34,11 @@ const ROUTES = [
   { name: 'redirecting', path: '/redirecting' },
 ];
 
-// Target directory for screenshots: /tmp/shots
-const outputDir = process.platform === 'win32' ? 'C:\\tmp\\shots' : '/tmp/shots';
+// Target directory for screenshots: configurable via arg or defaults to docs/report/screens/before
+const targetDirArg = process.argv[2];
+const outputDir = targetDirArg
+  ? path.resolve(projectRoot, targetDirArg)
+  : path.resolve(projectRoot, 'docs/report/screens/before');
 
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
@@ -43,15 +46,19 @@ if (!fs.existsSync(outputDir)) {
 
 console.log(`Saving screenshots to: ${outputDir}`);
 
+async function isServerRunning(url) {
+  try {
+    const res = await fetch(url);
+    return res.ok || res.status === 404;
+  } catch {
+    return false;
+  }
+}
+
 async function waitForServer(url, timeoutMs = 30000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok || res.status === 404) return true;
-    } catch {
-      // retry
-    }
+    if (await isServerRunning(url)) return true;
     await new Promise((r) => setTimeout(r, 400));
   }
   throw new Error(`Server failed to start at ${url} within ${timeoutMs}ms`);
@@ -60,20 +67,23 @@ async function waitForServer(url, timeoutMs = 30000) {
 async function run() {
   const PORT = 5173;
   const baseUrl = `http://localhost:${PORT}`;
+  let devServer = null;
 
-  console.log('Starting Vite preview server...');
-  const devServer = spawn('npm', ['run', 'preview', '--', '--port', String(PORT)], {
-    cwd: frontendDir,
-    shell: true,
-    stdio: 'pipe',
-  });
-
-  devServer.stderr.on('data', (d) => process.stderr.write(d));
+  if (await isServerRunning(baseUrl)) {
+    console.log(`Vite server is already running at ${baseUrl}`);
+  } else {
+    console.log('Starting Vite server...');
+    devServer = spawn('npm', ['run', 'dev', '--', '--port', String(PORT)], {
+      cwd: frontendDir,
+      shell: true,
+      stdio: 'pipe',
+    });
+    devServer.stderr.on('data', (d) => process.stderr.write(d));
+    await waitForServer(baseUrl);
+    console.log(`Vite server started at ${baseUrl}`);
+  }
 
   try {
-    await waitForServer(baseUrl);
-    console.log(`Vite server running at ${baseUrl}`);
-
     const browser = await chromium.launch({ headless: true });
 
     for (const mode of ['light', 'dark']) {
@@ -134,9 +144,11 @@ async function run() {
     await browser.close();
     console.log(`\nAll screenshots successfully saved to ${outputDir}`);
   } finally {
-    try {
-      devServer.kill();
-    } catch {}
+    if (devServer) {
+      try {
+        devServer.kill();
+      } catch {}
+    }
     process.exit(0);
   }
 }
