@@ -207,6 +207,64 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ────────────────── SECTION: BUILT WITH PARTNERS ────────────────── */}
+      <section className="py-12 border-y border-slate-200/80 dark:border-slate-800/80 bg-slate-50/60 dark:bg-[#0c121d]">
+        <div className="max-w-[1240px] mx-auto px-6 sm:px-8 lg:px-12 space-y-6">
+          <div className="text-center space-y-1">
+            <span className="text-xs font-semibold tracking-wider uppercase text-blue-600 dark:text-blue-400">
+              PayPal AI Hackathon Partner Ecosystem
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              Built with industry-leading developer platforms
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-[#003087] dark:text-[#0079C1]">PayPal</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Orders v2, server captures &amp; webhook verification
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-red-600 dark:text-red-400">AG Grid &amp; Studio</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Operations dashboard, custom widgets &amp; queue
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-orange-500">Groq</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Llama 3.3 70B ultra-fast primary text router
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-blue-500">Google Gemini</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Gemini 2.0 Flash multimodal evidence extraction
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Render</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Blueprint deploy, Dockerfile &amp; health checks
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-1.5 text-center">
+              <div className="font-bold text-sm text-[#FF6C37]">Postman</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                End-to-end API test collections &amp; automation
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ────────────────── SECTION: MARKET RISK ────────────────── */}
       <section id="risk" className="py-20 lg:py-28 px-6 sm:px-8 lg:px-12 max-w-[1240px] mx-auto space-y-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">

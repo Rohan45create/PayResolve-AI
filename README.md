@@ -52,6 +52,17 @@ payresolve/
 - **Database**: Managed PostgreSQL on Supabase (Session Pooler) or local Docker Postgres.
 - **Hosting & Infrastructure**: Render (Docker web service for backend, static site for frontend).
 
+### Partner & Sponsor Integrations
+
+| Partner / Tool | Capability & Integration | Source File Reference | 60-Second Verification |
+| :--- | :--- | :--- | :--- |
+| **PayPal** | Orders v2 creation, server capture, webhook signature verification (`verify-webhook-signature`), synthetic disputes | [`PayPalOrdersClient.java`](backend/src/main/java/com/payresolve/paypal/PayPalOrdersClient.java), [`PayPalWebhookVerificationClient.java`](backend/src/main/java/com/payresolve/paypal/PayPalWebhookVerificationClient.java) | Checkout in `/shop` $\to$ redirect to `sandbox.paypal.com` $\to$ capture $\to$ verified in `/events` & `/queue` |
+| **AG Grid & AG Studio** | Interactive Operations dashboard with 3 custom widgets (`CasesByType`, `TimeToCause`, `EvidenceCoverage`), Studio Agent Assistant, and Exception Queue grid | [`OperationsPage.tsx`](frontend/src/pages/OperationsPage.tsx), [`ExceptionQueuePage.tsx`](frontend/src/pages/ExceptionQueuePage.tsx), [`CasesByTypeWidget.tsx`](frontend/src/components/operations/CasesByTypeWidget.tsx) | Open `/operations`, toggle layout modes, ask the agent assistant questions in real time |
+| **Groq** | Ultra-fast primary text investigation router (`llama-3.3-70b-versatile`) with structured JSON mode and tool execution | [`GroqClient.java`](backend/src/main/java/com/payresolve/ai/GroqClient.java), [`LlmRouter.java`](backend/src/main/java/com/payresolve/ai/LlmRouter.java) | Run investigation on `/case/PR-0142` and observe `< 500ms` Groq latency badge |
+| **Google Gemini** | Multimodal evidence extraction (`gemini-2.0-flash`) for merchant receipts, carrier shipping proofs, and PDF invoices | [`GeminiClient.java`](backend/src/main/java/com/payresolve/ai/GeminiClient.java), [`CaseAttachmentController.java`](backend/src/main/java/com/payresolve/cases/CaseAttachmentController.java) | Click "Add evidence" on `/case/PR-0142`, upload image/PDF, click "Analyze with Gemini" |
+| **Render** | Blueprint Infrastructure-as-Code (`infra/render.yaml`), containerized Docker web service, static site rewrite, health probes | [`render.yaml`](infra/render.yaml), [`Dockerfile`](backend/Dockerfile) | Inspect `render.yaml` and verify `/actuator/health` live probe |
+| **Postman** | Comprehensive automated collection and environment testing all PayPal, webhook, and benchmark routes | [`postman/PayResolve-AI.postman_collection.json`](postman/PayResolve-AI.postman_collection.json) | Import collection into Postman and execute test runner |
+
 ---
 
 ## Database & Supabase Configuration
