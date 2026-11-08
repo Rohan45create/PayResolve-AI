@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.107.1",
+    "@types/dagre": "^0.7.54",
     "@xyflow/react": "^12.12.1",
     "ag-grid-community": "^36.3.0",
     "ag-grid-react": "^36.3.0",
     "ag-studio": "^3.1.0",
     "ag-studio-react": "^3.1.0",
+    "dagre": "^0.8.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5"
