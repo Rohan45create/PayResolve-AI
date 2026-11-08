@@ -1,53 +1,78 @@
 import React from 'react';
 
-export const PayResolveMark: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 28 }) => {
+export const PayResolveMark: React.FC<{
+  className?: string;
+  size?: number;
+  spinning?: boolean;
+}> = ({ className = '', size = 32, spinning = false }) => {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 40 40"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`shrink-0 ${className}`}
-      aria-label="PayResolve logo"
+    <div
+      className={`relative inline-flex items-center justify-center shrink-0 ${className}`}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label="PayResolve Mark"
     >
-      <defs>
-        <linearGradient id="prGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#00b4d8" />
-          <stop offset="45%" stopColor="#0077b6" />
-          <stop offset="100%" stopColor="#0052cc" />
-        </linearGradient>
-        <linearGradient id="prGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#0284c7" />
-          <stop offset="100%" stopColor="#034694" />
-        </linearGradient>
-      </defs>
-      
-      {/* Outer loop styled like the stylized P ribbon in the design PNGs */}
-      <path
-        d="M12 28.5C12 28.5 7 24 7 17C7 9.8 12.8 4 20 4C27.2 4 33 9.8 33 17C33 24.2 27.2 30 20 30C16.5 30 13.5 28.5 12 26"
-        stroke="url(#prGrad)"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M9 22C11 26 15 35 18 35.5C21 36 24 33 24 30"
-        stroke="url(#prGrad2)"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.9"
-      />
-      {/* Verification checkmark inside the loop */}
-      <path
-        d="M17.5 17L19.5 19L24 14.5"
-        stroke="#ffffff"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 40 40"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="overflow-visible"
+      >
+        <defs>
+          <linearGradient id="prShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#0066cc" />
+            <stop offset="100%" stopColor="#003366" />
+          </linearGradient>
+
+          <linearGradient id="prRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="50%" stopColor="#0066cc" />
+            <stop offset="100%" stopColor="#1e40af" />
+          </linearGradient>
+
+          <filter id="prGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {/* Deep blue background capsule */}
+        <rect
+          x="2"
+          y="2"
+          width="36"
+          height="36"
+          rx="10"
+          fill="url(#prShieldGrad)"
+          className="shadow-inner"
+        />
+
+        {/* Lighter blue ring with travelling sweep */}
+        <circle
+          cx="20"
+          cy="20"
+          r="13"
+          stroke="url(#prRingGrad)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray="28 54"
+          className={spinning ? 'animate-spin-slow origin-center' : ''}
+          filter="url(#prGlow)"
+        />
+
+        {/* Crisp checkmark that self-draws on load with stroke-dashoffset */}
+        <path
+          d="M14.5 20.5L18.5 24.5L25.5 16.5"
+          stroke="#ffffff"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="animate-check-draw"
+        />
+      </svg>
+    </div>
   );
 };
 
@@ -63,17 +88,18 @@ export const PayResolveLogo: React.FC<{
   showText = true,
 }) => {
   return (
-    <div className={`inline-flex items-center space-x-2.5 select-none ${className}`}>
+    <div className={`flex items-center space-x-2.5 ${className}`}>
       <PayResolveMark size={markSize} />
       {showText && (
-        <span className={`font-bold text-lg tracking-tight flex items-center gap-1.5 ${textColor}`}>
-          PayResolve
-          <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded bg-blue-500 text-white font-mono shadow-xs">
+        <div className="flex items-center space-x-1.5">
+          <span className={`font-bold tracking-tight text-base sm:text-lg ${textColor}`}>
+            PayResolve
+          </span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0066cc] text-white tracking-wide uppercase">
             AI
           </span>
-        </span>
+        </div>
       )}
     </div>
   );
 };
-

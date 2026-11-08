@@ -156,7 +156,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
       {/* ─── MAIN PAGE CONTENT ─── */}
       <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden p-6 sm:p-10 lg:p-12">
-        {children}
+        <div key={location.pathname} className="route-fade-slide">
+          {children}
+        </div>
       </main>
     </div>
   );

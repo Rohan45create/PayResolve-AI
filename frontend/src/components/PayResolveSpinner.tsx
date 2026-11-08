@@ -9,7 +9,7 @@ interface PayResolveSpinnerProps {
 }
 
 export const PayResolveSpinner: React.FC<PayResolveSpinnerProps> = ({
-  size = 48,
+  size = 44,
   label,
   sublabel,
   className = '',
@@ -21,14 +21,12 @@ export const PayResolveSpinner: React.FC<PayResolveSpinnerProps> = ({
       className={`flex flex-col items-center justify-center p-8 space-y-4 ${className}`}
     >
       <div className="relative flex items-center justify-center">
-        {/* Animated breathing pulse ring with prefers-reduced-motion fallback */}
+        {/* Animated breathing pulse ring */}
         <div
-          className="absolute inset-0 rounded-full bg-blue-500/20 dark:bg-blue-400/20 blur-md motion-safe:animate-ping opacity-60"
-          style={{ width: size * 1.3, height: size * 1.3, top: -size * 0.15, left: -size * 0.15 }}
+          className="absolute inset-0 rounded-2xl bg-blue-500/20 dark:bg-blue-400/20 blur-md motion-safe:animate-pulse opacity-70"
+          style={{ width: size * 1.25, height: size * 1.25, top: -size * 0.12, left: -size * 0.12 }}
         />
-        <div className="motion-safe:animate-pulse">
-          <PayResolveMark size={size} />
-        </div>
+        <PayResolveMark size={size} spinning={true} />
       </div>
 
       {label && (
@@ -46,4 +44,3 @@ export const PayResolveSpinner: React.FC<PayResolveSpinnerProps> = ({
     </div>
   );
 };
-

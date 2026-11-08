@@ -193,3 +193,89 @@ html.dark .react-flow__controls-button:hover {
 html.dark .react-flow__controls-button svg {
   fill: inherit !important;
 }
+
+/* ==========================================================================
+   Phase 4 Motion & Animation Suite (View Transitions & Keyframes)
+   ========================================================================== */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@keyframes checkDraw {
+  0% {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes routeFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes staggerItem {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-check-draw {
+  animation: checkDraw 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 1.33s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.route-fade-slide {
+  animation: routeFadeSlide 120ms ease-out forwards;
+}
+
+.animate-stagger-item {
+  animation: staggerItem 220ms ease-out forwards;
+  animation-delay: calc(var(--stagger-i, 0) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin-slow,
+  .animate-check-draw,
+  .route-fade-slide,
+  .animate-stagger-item {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
