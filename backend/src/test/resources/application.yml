@@ -67,7 +67,14 @@ payresolve:
     read-timeout-ms: 10000
     use-synthetic-disputes: false
   ai:
-    provider: gemini
+    provider: rules
+    groq:
+      api-key: ""
+      model: llama-3.3-70b-versatile
+      base-url: http://localhost:8089
+    gemini:
+      api-key: ""
+      model: gemini-2.0-flash
   auth:
     operator-username: operator
     operator-password: test_operator_password

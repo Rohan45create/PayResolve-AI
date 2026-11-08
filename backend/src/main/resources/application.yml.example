@@ -76,7 +76,14 @@ payresolve:
     read-timeout-ms: ${PAYPAL_READ_TIMEOUT_MS:10000}
     use-synthetic-disputes: ${PAYPAL_USE_SYNTHETIC_DISPUTES:false}
   ai:
-    provider: ${AI_PROVIDER:gemini}
+    provider: ${AI_PROVIDER:groq}
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+    gemini:
+      api-key: ${GEMINI_API_KEY:${spring.ai.google.genai.api-key:}}
+      model: ${GEMINI_MODEL:gemini-2.0-flash}
   auth:
     operator-username: ${OPERATOR_USERNAME:operator}
     operator-password: ${OPERATOR_PASSWORD:}
