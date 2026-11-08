@@ -282,4 +282,52 @@ class ShopIntegrationTest {
                 .single();
         assertThat(dbReset).isFalse();
     }
+
+    @Test
+    @DisplayName("7. Return/cancel URLs use the UI origin (FRONTEND_ORIGIN), not the API URL")
+    void checkoutShouldUseUiOriginForReturnAndCancelUrls() {
+        // Verifies the fix for the deployment bug: before the fix, return_url and cancel_url
+        // pointed at the API server (APP_PUBLIC_URL), which is not a UI page. After the fix,
+        // they point at the UI origin so the buyer lands on /shop/return or /shop/cancel.
+        ShopOrder order = shopOrderService.createOrderFromCart(
+                List.of(new OrderItemRequest("mug", 1)),
+                "Return URL Test",
+                "USD"
+        );
+
+        // Capture the URLs passed to PayPal via the mock
+        final String[] capturedReturn = {null};
+        final String[] capturedCancel = {null};
+
+        PayPalOrder mockPayPal = new PayPalOrder(
+                "PP-ORD-URL",
+                "CREATED",
+                "CAPTURE",
+                List.of(new PurchaseUnit("PP-ORD-URL", order.id(), new Amount("USD", "24.00"), null)),
+                List.of(new LinkDescription("https://sandbox.paypal.com/checkoutnow?token=PP-ORD-URL", "approve", "GET"))
+        );
+
+        when(payPalOrdersClient.createOrder(
+                eq(order.id()),
+                any(),
+                org.mockito.ArgumentMatchers.argThat(r -> { capturedReturn[0] = r; return true; }),
+                org.mockito.ArgumentMatchers.argThat(c -> { capturedCancel[0] = c; return true; })
+        )).thenReturn(mockPayPal);
+
+        shopOrderService.initiatePayPalCheckout(order.id(), null, null);
+
+        // The return/cancel URLs must point at the UI, not the API.
+        // In tests, payresolve.frontend-origin defaults to http://localhost:5173.
+        assertThat(capturedReturn[0])
+                .as("return_url must point at the UI /shop/return, not the API")
+                .startsWith("http://localhost:5173")
+                .contains("/shop/return")
+                .doesNotContain(":8080");
+
+        assertThat(capturedCancel[0])
+                .as("cancel_url must point at the UI /shop/cancel, not the API")
+                .startsWith("http://localhost:5173")
+                .contains("/shop/cancel")
+                .doesNotContain(":8080");
+    }
 }
