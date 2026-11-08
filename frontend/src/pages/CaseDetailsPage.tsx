@@ -3,9 +3,21 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '../components/AppLayout';
 import { EvidenceGraphView } from '../components/EvidenceGraphView';
+import { GoogleIcon } from '../components/GoogleIcon';
 import { api, ApiError, type InvestigationSummaryDto, type ProposedActionDto } from '../lib/api';
 import { toast } from '../lib/toast';
 import { TableSkeleton, ErrorState, EmptyState } from '../components/DataStates';
+
+function calculateAge(dateStr?: string): string {
+  if (!dateStr) return '1 min';
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.max(1, Math.floor(diffMs / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `${days} d`;
+}
 
 export default function CaseDetailsPage() {
   const { id = 'PR-0142' } = useParams<{ id: string }>();
@@ -48,6 +60,58 @@ export default function CaseDetailsPage() {
     queryKey: ['case-actions', id],
     queryFn: () => api.actions.getForCase(id),
   });
+
+  // 5. Fetch Attachments (Multimodal Evidence)
+  const { data: attachments = [], refetch: refetchAttachments } = useQuery({
+    queryKey: ['case-attachments', id],
+    queryFn: () => api.attachments.list(id),
+    enabled: !!id,
+  });
+
+  // 6. Fetch LLM Routing Telemetry Calls
+  const { data: llmCalls = [], refetch: refetchLlmCalls } = useQuery({
+    queryKey: ['case-llm-calls', id],
+    queryFn: () => api.investigator.getLlmCalls(id),
+    enabled: !!id,
+  });
+
+  // Upload Mutation
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => api.attachments.upload(id, file),
+    onSuccess: (data) => {
+      refetchAttachments();
+      toast.success(`Uploaded ${data.filename}. Click 'Analyze with Gemini' to extract evidence.`);
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Upload failed. Allowed: PNG, JPEG, PDF up to 4MB');
+    },
+  });
+
+  // Analyze Mutation
+  const analyzeMutation = useMutation({
+    mutationFn: (attachmentId: string) => api.attachments.analyze(id, attachmentId),
+    onSuccess: (data) => {
+      refetchAttachments();
+      refetchLlmCalls();
+      queryClient.invalidateQueries({ queryKey: ['case-graph', id] });
+      queryClient.invalidateQueries({ queryKey: ['case-timeline', id] });
+      toast.success(`Extracted evidence via ${data.provider} (${data.model})`);
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Multimodal extraction failed.');
+    },
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error('File exceeds 4MB limit.');
+      return;
+    }
+    uploadMutation.mutate(file);
+    e.target.value = '';
+  };
 
   // Action mutation: Approve
   const approveMutation = useMutation({
@@ -208,18 +272,33 @@ export default function CaseDetailsPage() {
               Case {caseData.id}: {typeFormatted}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Order #{caseData.shopOrderId?.replace('ORD-', '') || caseData.paypalOrderId} &middot; opened 4 min ago &middot; {severityBadge}
+              Order #{caseData.shopOrderId?.replace('ORD-', '') || caseData.paypalOrderId} &middot; opened {calculateAge(caseData.openedAt)} ago &middot; {severityBadge}
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             {statusBadge}
+            <label className="px-3.5 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] text-xs sm:text-sm font-medium shadow-2xs cursor-pointer transition-all flex items-center space-x-1.5">
+              <GoogleIcon name="attach_file" size={17} />
+              <span>{uploadMutation.isPending ? 'Uploading...' : 'Add evidence'}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,application/pdf"
+                className="hidden"
+                disabled={uploadMutation.isPending}
+                onChange={handleFileUpload}
+              />
+            </label>
             <button
               onClick={() => investigateMutation.mutate()}
               disabled={investigateMutation.isPending}
               className="px-5 py-2 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white text-xs sm:text-sm font-medium shadow-sm cursor-pointer transition-all disabled:opacity-70"
             >
-              {investigateMutation.isPending ? 'Investigating...' : 'Investigate'}
+              {investigateMutation.isPending
+                ? 'Investigating...'
+                : caseData.status === 'RESOLVED'
+                ? 'Re-investigate'
+                : 'Investigate'}
             </button>
           </div>
         </div>
@@ -327,6 +406,25 @@ export default function CaseDetailsPage() {
             </div>
 
             {/* Tool Calls Row */}
+            {llmCalls.length > 0 && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#131b26] border border-slate-200/70 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
+                <div className="flex items-center space-x-1.5 font-mono">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {llmCalls[0].provider.toUpperCase()}: {llmCalls[0].model}
+                  </span>
+                  {llmCalls[0].fallbackUsed && (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px]">
+                      fallback
+                    </span>
+                  )}
+                </div>
+                <div className="font-mono text-slate-500 dark:text-slate-400">
+                  {llmCalls[0].latencyMs} ms &middot; {llmCalls[0].promptTokens ?? 0} in / {llmCalls[0].completionTokens ?? 0} out
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
               {displayToolCalls.map((tc, idx) => (
                 <span
@@ -380,63 +478,34 @@ export default function CaseDetailsPage() {
               </p>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={async () => {
-                  let targetActionId = proposedAction?.id;
-                  if (!targetActionId) {
-                    try {
-                      const created = await api.actions.propose(id, {
-                        type: 'SYNC_ORDER_STATUS',
-                        idempotencyKey: `idemp-${id}-${Date.now()}`,
-                        proposedBy: 'AI',
-                        payload: { note: 'Propose status sync' },
-                      });
-                      targetActionId = created.id;
-                    } catch (err: unknown) {
-                      toast.error(err instanceof Error ? err.message : 'Failed to create proposal.');
-                      return;
-                    }
-                  }
-                  if (targetActionId) {
-                    approveMutation.mutate(targetActionId);
-                  }
-                }}
-                disabled={approveMutation.isPending || isApproved}
-                className="px-5 py-2 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {approveMutation.isPending ? 'Approving...' : isApproved ? 'Approved' : 'Approve'}
-              </button>
+            {/* Action buttons (only displayed when proposed action exists) */}
+            {proposedAction ? (
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => approveMutation.mutate(proposedAction.id)}
+                  disabled={approveMutation.isPending || isApproved}
+                  className="px-5 py-2 rounded-lg bg-[#0066cc] hover:bg-blue-600 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {approveMutation.isPending ? 'Approving...' : isApproved ? 'Approved' : 'Approve'}
+                </button>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  let targetActionId = proposedAction?.id;
-                  if (!targetActionId) {
-                    try {
-                      const created = await api.actions.propose(id, {
-                        type: 'REQUEST_REVIEW',
-                        idempotencyKey: `idemp-rej-${id}-${Date.now()}`,
-                        proposedBy: 'AI',
-                        payload: { note: 'Propose review' },
-                      });
-                      targetActionId = created.id;
-                    } catch {
-                      return;
-                    }
-                  }
-                  if (targetActionId) {
-                    rejectMutation.mutate(targetActionId);
-                  }
-                }}
-                disabled={rejectMutation.isPending || isRejected}
-                className="px-5 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] font-medium text-xs sm:text-sm shadow-2xs cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {rejectMutation.isPending ? 'Rejecting...' : isRejected ? 'Rejected' : 'Reject'}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => rejectMutation.mutate(proposedAction.id)}
+                  disabled={rejectMutation.isPending || isRejected || isApproved}
+                  className="px-5 py-2 rounded-lg bg-white dark:bg-[#131b26] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] font-medium text-xs sm:text-sm shadow-2xs cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {rejectMutation.isPending ? 'Rejecting...' : isRejected ? 'Rejected' : 'Reject'}
+                </button>
+              </div>
+            ) : (
+              <div className="pt-2 text-xs text-slate-500 dark:text-slate-400">
+                {caseData.status === 'RESOLVED'
+                  ? 'Case resolved. All operator actions completed.'
+                  : 'No action currently awaiting operator approval. Run the investigator to propose next steps.'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -472,36 +541,29 @@ export default function CaseDetailsPage() {
                       </tr>
                     ))
                   ) : (
-                    <>
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#121b2b]">
-                        <td className="py-3 pr-4 font-mono text-slate-600 dark:text-slate-400">10:02:11</td>
-                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">Shop</td>
-                        <td className="py-3 pl-4 text-slate-700 dark:text-slate-300">Order created, awaiting confirmation</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#121b2b]">
-                        <td className="py-3 pr-4 font-mono text-slate-600 dark:text-slate-400">10:02:40</td>
-                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">PayPal</td>
-                        <td className="py-3 pl-4 text-slate-700 dark:text-slate-300">Capture COMPLETED, $84.50</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50/50 dark:hover:bg-[#121b2b]">
-                        <td className="py-3 pr-4 font-mono text-slate-600 dark:text-slate-400">10:02:41</td>
-                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">Webhook</td>
-                        <td className="py-3 pl-4 text-slate-700 dark:text-slate-300">Delivered, handler failed</td>
-                      </tr>
-                    </>
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-xs text-slate-400">
+                        No timeline events recorded yet. Run detectors or investigation to build the timeline.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Bottom Right: Dispute Evidence Checklist */}
+          {/* Bottom Right: Dispute Evidence Checklist & Multimodal Attachments */}
           <div className="lg:col-span-5 bg-white dark:bg-[#0e1522] rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-6 space-y-4 shadow-2xs">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Dispute evidence checklist</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Shown when a dispute exists. Synthetic fixture in this demo.
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Dispute evidence checklist</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Extracted via Gemini multimodal or manual receipt upload.
+                </p>
+              </div>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                {attachments.length} file{attachments.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
             <div className="space-y-4 pt-1">
@@ -524,14 +586,18 @@ export default function CaseDetailsPage() {
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={proofOfDelivery}
+                    checked={proofOfDelivery || attachments.some(a => Boolean(a.extractedData))}
                     onChange={(e) => setProofOfDelivery(e.target.checked)}
                     className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
                   <span className="text-xs sm:text-sm text-slate-800 dark:text-slate-200">Proof of delivery</span>
                 </label>
-                <span className="px-3 py-0.5 rounded-full border border-amber-600/60 text-amber-700 dark:text-amber-400 text-xs">
-                  Missing
+                <span className={`px-3 py-0.5 rounded-full border text-xs ${
+                  proofOfDelivery || attachments.some(a => Boolean(a.extractedData))
+                    ? 'border-emerald-500/60 text-emerald-700 dark:text-emerald-400'
+                    : 'border-amber-600/60 text-amber-700 dark:text-amber-400'
+                }`}>
+                  {proofOfDelivery || attachments.some(a => Boolean(a.extractedData)) ? 'Verified' : 'Missing'}
                 </span>
               </div>
 
@@ -550,6 +616,60 @@ export default function CaseDetailsPage() {
                 </span>
               </div>
             </div>
+
+            {/* Uploaded Evidence Attachments List */}
+            {attachments.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+                <div className="text-xs font-semibold text-slate-900 dark:text-white">Uploaded evidence files</div>
+                <div className="space-y-2">
+                  {attachments.map((att) => {
+                    let parsedData: any = null;
+                    if (att.extractedData) {
+                      try {
+                        parsedData = JSON.parse(att.extractedData);
+                      } catch {}
+                    }
+                    return (
+                      <div
+                        key={att.id}
+                        className="p-3 rounded-xl bg-slate-50 dark:bg-[#131b26] border border-slate-200/60 dark:border-slate-800/80 text-xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                            {att.filename}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {(att.fileSize / 1024).toFixed(0)} KB
+                          </span>
+                        </div>
+
+                        {parsedData ? (
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-emerald-50/40 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-200/50 dark:border-emerald-800/40 space-y-0.5">
+                            <div className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center space-x-1">
+                              <GoogleIcon name="verified" size={13} />
+                              <span>Gemini Multimodal Extracted</span>
+                            </div>
+                            <div>Merchant: {parsedData.merchant || 'N/A'}</div>
+                            <div>Amount: ${parsedData.amount ?? '--'} {parsedData.currency || 'USD'}</div>
+                            {parsedData.trackingNumber && <div>Tracking: {parsedData.trackingNumber}</div>}
+                            {parsedData.notes && <div className="italic text-slate-500">{parsedData.notes}</div>}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => analyzeMutation.mutate(att.id)}
+                            disabled={analyzeMutation.isPending}
+                            className="px-3 py-1 rounded bg-[#0066cc] hover:bg-blue-600 text-white text-[11px] font-medium shadow-2xs cursor-pointer flex items-center space-x-1 transition-colors"
+                          >
+                            <GoogleIcon name="auto_awesome" size={13} />
+                            <span>{analyzeMutation.isPending ? 'Extracting...' : 'Analyze with Gemini'}</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
