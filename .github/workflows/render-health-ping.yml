@@ -52,3 +52,4 @@ jobs:
             echo "Warning: Health check returned HTTP $HTTP_CODE (instance may be waking up or warming)."
             # Do not hard-fail workflow if free tier was cold-starting
           fi
+
