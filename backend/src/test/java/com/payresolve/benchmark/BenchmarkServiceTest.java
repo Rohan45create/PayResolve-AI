@@ -83,3 +83,4 @@ class BenchmarkServiceTest {
         assertThat(latest.get().totalCases()).isEqualTo(18);
     }
 }
+
